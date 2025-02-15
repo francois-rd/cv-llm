@@ -1,5 +1,6 @@
 black~=22.3.0
 coma==1.0.1
+omegaconf==2.1.2
 dacite>=1.8.1
 pandas
 numpy==1.22.4

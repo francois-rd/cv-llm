@@ -20,11 +20,17 @@ class PathConfig:
     # Resources (databases and datasets).
     resources_dir: str = "${root_dir}/resources"
 
+    # Folder containing the transcript data.
+    transcript_dir: str = "${resources_dir}/transcripts"
+
     # File path to folder containing the original transcript data.
-    docx_transcript_dir: str = "${resources_dir}/docx"
+    docx_transcript_dir: str = "${transcript_dir}/docx"
 
     # File path to folder containing the JSON-converted transcript data.
-    json_transcript_dir: str = "${resources_dir}/json"
+    json_transcript_dir: str = "${transcript_dir}/json"
+
+    # File path to folder containing the clustered transcript data.
+    clustered_transcript_dir: str = "${transcript_dir}/clustered"
 
 
 T = TypeVar("T")

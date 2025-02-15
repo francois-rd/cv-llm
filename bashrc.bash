@@ -21,6 +21,7 @@ export -f launch
 # Basic terminal auto-complete.
 complete -W "
 docx.to.json
+segment
 test.launch
 " launch
 

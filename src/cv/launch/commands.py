@@ -4,7 +4,8 @@ import os
 import coma
 
 from .base import Configs as Cfgs, init
-from ..io import PathConfig, load_docx, save_json
+from ..io import PathConfig, load_docx, load_json, save_json, save_dataclass_json
+from ..segmentation import ClustersConfig, ConvertTagsToTranscript, TagsConfig, Tagger
 
 
 def docx_to_json(path: PathConfig):
@@ -19,10 +20,26 @@ def docx_to_json(path: PathConfig):
             save_json(output_file, lines, indent=4)
 
 
+def segment(path: PathConfig, tags: TagsConfig, clusters: ClustersConfig):
+    tag = Tagger(tags)
+    to_transcript = ConvertTagsToTranscript(clusters)
+    for root, _, files in os.walk(path.json_transcript_dir):
+        for filename in files:
+            lines = load_json(str(os.path.join(root, filename)))
+            output_file = str(os.path.join(path.clustered_transcript_dir, filename))
+            transcript = to_transcript(lines, tag(lines))
+            save_dataclass_json(output_file, transcript, indent=4)
+
+
 def register():
     """Registers all known commands with Coma."""
     coma.register("test.launch", lambda: print("Successfully launched."))
     coma.register("docx.to.json", docx_to_json, **Cfgs.add(Cfgs.paths))
+    coma.register(
+        "segment",
+        segment,
+        **Cfgs.add(Cfgs.paths, Cfgs.tags, Cfgs.clusters),
+    )
 
 
 def launch():

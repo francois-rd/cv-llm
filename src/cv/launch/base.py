@@ -4,6 +4,7 @@ import logging
 import coma
 
 from ..io import PathConfig, logging as log
+from ..segmentation import ClustersConfig, TagsConfig
 
 
 # Links a unique config ID with its data type.
@@ -13,7 +14,9 @@ ConfigData = namedtuple("ConfigData", "id_ type_")
 class Configs:
     """Registry for all known configs."""
 
+    clusters = ConfigData("clusters", ClustersConfig)
     paths = ConfigData("paths", PathConfig)
+    tags = ConfigData("tags", TagsConfig)
 
     @staticmethod
     def add(*cfgs_data: ConfigData):

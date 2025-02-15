@@ -1,0 +1,3 @@
+primary_regex: ^(Answered)?\s*Question\s*(.+?)\s*(Ite(ra|ar)tion.+?)?\.\.
+question_group: 2
+question_id_regex: ([0-9]+)\s*\w?\s*[0-9]*
