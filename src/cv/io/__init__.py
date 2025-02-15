@@ -8,6 +8,7 @@ from .data import (
     save_jsonl,
     save_dataclass_json,
     save_dataclass_jsonl,
+    load_docx,
     load_lines,
     load_json,
     load_jsonl,

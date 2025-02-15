@@ -20,6 +20,7 @@ export -f launch
 
 # Basic terminal auto-complete.
 complete -W "
+docx.to.json
 test.launch
 " launch
 

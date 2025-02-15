@@ -5,6 +5,7 @@ from enum import Enum
 import json
 import os
 
+from docx import Document
 from dacite import Config, from_dict
 import pandas as pd
 
@@ -13,7 +14,17 @@ import pandas as pd
 class PathConfig:
     """Programmatic access to file paths of important files. Set `root_dir' appropriately."""
 
+    # Root directory for all data.
     root_dir: str = ""
+
+    # Resources (databases and datasets).
+    resources_dir: str = "${root_dir}/resources"
+
+    # File path to folder containing the original transcript data.
+    docx_transcript_dir: str = "${resources_dir}/docx"
+
+    # File path to folder containing the JSON-converted transcript data.
+    json_transcript_dir: str = "${resources_dir}/json"
 
 
 T = TypeVar("T")
@@ -185,3 +196,8 @@ def load_records_csv(file_path: str, **kwargs) -> list[dict]:
     pandas.read_csv().
     """
     return pd.read_csv(file_path, **kwargs).to_dict(orient="records")
+
+
+def load_docx(file_path: str) -> list[str]:
+    lines = [paragraph.text for paragraph in Document(file_path).paragraphs]
+    return [line.strip() for line in lines if line.strip()]
