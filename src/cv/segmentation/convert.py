@@ -1,4 +1,5 @@
 from typing import Iterable, Optional
+from dataclasses import dataclass
 import re
 
 from omegaconf import OmegaConf
@@ -7,7 +8,12 @@ from .base import TagsConfig, Transcript
 from ..core import Cluster, ClusterName, ClustersConfig, QuestionId
 
 
-Tag = Optional[list[QuestionId]]
+@dataclass
+class Tag:
+    question_ids: Optional[list[QuestionId]]
+    match_string: str
+
+
 Span = tuple[Optional[int], Optional[int]]
 
 
@@ -17,21 +23,21 @@ class Tagger:
         self.pattern = re.compile(tags_cfg.primary_regex, flags=re.IGNORECASE)
         self.digits = re.compile(tags_cfg.question_id_regex, flags=re.IGNORECASE)
 
-    def __call__(self, lines: list[str], *args, **kwargs) -> list[Tag]:
+    def __call__(self, lines: list[str], *args, **kwargs) -> list[Optional[Tag]]:
         return [self._do_tag(line) for line in lines]
 
-    def _do_tag(self, line) -> Tag:
+    def _do_tag(self, line) -> Optional[Tag]:
         match = self.pattern.search(line)
         if match is None:
             return None
         question_tag = match.group(self.tags_cfg.question_group)
         try:
-            return [int(question_tag)]
+            return Tag([int(question_tag)], match.group())
         except ValueError:
             res = self.digits.findall(question_tag)
             if len(set(res)) == 1:  # All elements equal and there is at least one.
-                return [int(res[0])]
-            return [int(r) for r in res]
+                return Tag([int(res[0])], match.group())
+            return Tag([int(r) for r in res], match.group())
 
 
 class ConvertTagsToTranscript:
@@ -57,34 +63,43 @@ class ConvertTagsToTranscript:
     def __call__(
         self,
         lines: list[str],
-        tags: list[Tag],
+        tags: list[Optional[Tag]],
         *args,
         **kwargs,
     ) -> Transcript:
         transcript = {}
         for name, data in self.clusters_cfg.clusters.items():
             transcript[name] = Cluster(OmegaConf.to_object(data))
+        lines = [self._remove_tag(line, i, tags) for i, line in enumerate(lines)]
         self._fill_transcript(transcript, lines, tags)
         return Transcript(transcript)
+
+    @staticmethod
+    def _remove_tag(line: str, index, tags: list[Optional[Tag]]) -> str:
+        tag = tags[index]
+        if tag is None:
+            return line
+        else:
+            return line.replace(tag.match_string, "").strip()
 
     def _fill_transcript(
         self,
         transcript: dict[ClusterName, Cluster],
         lines: list[str],
-        tags: list[Tag],
+        tags: list[Optional[Tag]],
     ):
         all_spans = self._find_all_spans(tags)
         for cluster in transcript.values():
             self._fill_cluster(cluster, lines, all_spans)
 
-    def _find_all_spans(self, tags: list[Tag]):
+    def _find_all_spans(self, tags: list[Optional[Tag]]):
         return {
             q_id: self._find_span(q_id, tags)
             for q_id in self.q_id_to_cluster_map
         }
 
     @staticmethod
-    def _find_span(q_id: QuestionId, tags: list[Tag]) -> Span:
+    def _find_span(q_id: QuestionId, tags: list[Optional[Tag]]) -> Span:
         start, end = None, None
         for i, tag in enumerate(tags):
             if tag is None:  # If we have a blank tag...
@@ -92,7 +107,7 @@ class ConvertTagsToTranscript:
                 end = None if start is None else i
                 continue  # Importantly, go to next loop.
 
-            if q_id not in tag:  # If tag isn't blank, but the q_id is not in it...
+            if q_id not in tag.question_ids:  # Tag isn't blank, but q_ids not in it...
                 if start is None and end is None:
                     continue  # ... continue if we haven't hit the span at all yet...
                 break  # ... otherwise, we are done searching.
