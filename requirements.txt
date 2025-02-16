@@ -10,4 +10,5 @@ pyreadstat~=1.2.0
 python-docx           # May be docx or python-docx in the main program imports.
 transformers~=4.26.1
 torch~=1.13.1         # May be torch or pytorch in the main program imports.
+langchain~=0.3.7
 scipy~=1.7.3

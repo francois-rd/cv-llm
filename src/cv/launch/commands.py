@@ -4,16 +4,27 @@ import os
 import coma
 
 from .base import Configs as Cfgs, init
-from ..io import PathConfig, load_docx, load_json, save_json, save_dataclass_json
-from ..segmentation import ClustersConfig, ConvertTagsToTranscript, TagsConfig, Tagger
+from ..core import ClustersConfig, DefaultScoreParser
+from ..extract import Extract
+from ..llms import LLMsConfig
+from ..segmentation import ConvertTagsToTranscript, TagsConfig, Tagger, Transcript
+from ..io import (
+    PathConfig,
+    load_dataclass_json,
+    load_docx,
+    load_json,
+    save_json,
+    save_dataclass_json,
+    save_dataclass_jsonl,
+)
 
 
 def docx_to_json(path: PathConfig):
     for root, _, files in os.walk(path.docx_transcript_dir):
         for filename in files:
             # Extract the 'assign ID' to create the output filename.
-            aid = filename.split("_")[0]
-            output_file = str(os.path.join(path.json_transcript_dir, aid + ".json"))
+            a_id = filename.split("_")[0]
+            output_file = str(os.path.join(path.json_transcript_dir, a_id + ".json"))
 
             # Convert the data and write to file in JSON format.
             lines = load_docx(str(os.path.join(root, filename)))
@@ -31,6 +42,20 @@ def segment(path: PathConfig, tags: TagsConfig, clusters: ClustersConfig):
             save_dataclass_json(output_file, transcript, indent=4)
 
 
+def extract(path: PathConfig, clusters: ClustersConfig, llms: LLMsConfig):
+    do_extract = Extract(clusters, llms, DefaultScoreParser)
+    for root, _, files in os.walk(path.clustered_transcript_dir):
+        for filename in files:
+            # Manipulate file paths.
+            file_path = str(os.path.join(root, filename))
+            a_id = os.path.splitext(os.path.basename(filename))[0]
+            output_file = f"{path.raw_scores_dir}/{llms.llm}/{a_id}.jsonl"
+
+            # Use an LLM to extract data from the transcript.
+            transcript = load_dataclass_json(file_path, t=Transcript)
+            save_dataclass_jsonl(output_file, *do_extract(transcript))
+
+
 def register():
     """Registers all known commands with Coma."""
     coma.register("test.launch", lambda: print("Successfully launched."))
@@ -39,6 +64,11 @@ def register():
         "segment",
         segment,
         **Cfgs.add(Cfgs.paths, Cfgs.tags, Cfgs.clusters),
+    )
+    coma.register(
+        "extract",
+        extract,
+        **Cfgs.add(Cfgs.paths, Cfgs.clusters, Cfgs.llms),
     )
 
 

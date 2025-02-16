@@ -3,8 +3,10 @@ import logging
 
 import coma
 
+from ..core import ClustersConfig
 from ..io import PathConfig, logging as log
-from ..segmentation import ClustersConfig, TagsConfig
+from ..llms import LLMsConfig
+from ..segmentation import TagsConfig
 
 
 # Links a unique config ID with its data type.
@@ -15,6 +17,7 @@ class Configs:
     """Registry for all known configs."""
 
     clusters = ConfigData("clusters", ClustersConfig)
+    llms = ConfigData("llms", LLMsConfig)
     paths = ConfigData("paths", PathConfig)
     tags = ConfigData("tags", TagsConfig)
 

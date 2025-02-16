@@ -23,14 +23,21 @@ class PathConfig:
     # Folder containing the transcript data.
     transcript_dir: str = "${resources_dir}/transcripts"
 
-    # File path to folder containing the original transcript data.
+    # Folder containing the original transcript data.
     docx_transcript_dir: str = "${transcript_dir}/docx"
 
-    # File path to folder containing the JSON-converted transcript data.
+    # Folder containing the JSON-converted transcript data.
     json_transcript_dir: str = "${transcript_dir}/json"
 
-    # File path to folder containing the clustered transcript data.
+    # Folder containing the clustered transcript data.
     clustered_transcript_dir: str = "${transcript_dir}/clustered"
+
+    # Results (from LLMs and evaluation).
+    results_dir: str = "${root_dir}/results"
+
+    # Top-level folder for storing the raw LLM output. Each sub-folder is the
+    # Nickname of a particular LLM.
+    raw_scores_dir: str = "${results_dir}/raw_scores"
 
 
 T = TypeVar("T")

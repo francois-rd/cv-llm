@@ -3,14 +3,9 @@ import re
 
 from omegaconf import OmegaConf
 
-from .base import (
-    Cluster,
-    ClusterName,
-    ClustersConfig,
-    QuestionId,
-    TagsConfig,
-    Transcript,
-)
+from .base import TagsConfig, Transcript
+from ..core import Cluster, ClusterName, ClustersConfig, QuestionId
+
 
 Tag = Optional[list[QuestionId]]
 Span = tuple[Optional[int], Optional[int]]
