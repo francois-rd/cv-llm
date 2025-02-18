@@ -8,7 +8,7 @@ from .base import Configs as Cfgs, init
 from ..consolidate import ConsolidateConfig, Consolidator
 from ..core import ClustersConfig, DefaultScoreParser, enum_from_str
 from ..extract import Extract, ClusterOutput
-from ..llms import LLMsConfig
+from ..llms import LLMsConfig, TransformersConfig
 from ..segmentation import ConvertTagsToTranscript, TagsConfig, Tagger, Transcript
 from ..io import (
     PathConfig,
@@ -57,9 +57,12 @@ def extract(
     paths: PathConfig,
     clusters: ClustersConfig,
     llms: LLMsConfig,
+    transformers_cfg: TransformersConfig,
     rerun_protocol: RerunProtocol,
 ):
-    do_extract = Extract(clusters, llms, DefaultScoreParser)
+    do_extract = Extract(
+        clusters, llms, DefaultScoreParser, transformers_cfg=transformers_cfg,
+    )
     for root, _, files in os.walk(paths.clustered_transcript_dir):
         for filename in files:
             # Manipulate file paths.
@@ -155,7 +158,7 @@ def register():
             help="set the protocol for treating existing output files during rerun",
         ),
         pre_init_hook=extract_pre_init_hook,
-        **Cfgs.add(Cfgs.paths, Cfgs.clusters, Cfgs.llms),
+        **Cfgs.add(Cfgs.paths, Cfgs.clusters, Cfgs.llms, Cfgs.transformers),
     )
 
     coma.register(

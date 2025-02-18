@@ -6,7 +6,7 @@ import coma
 from ..consolidate import ConsolidateConfig
 from ..core import ClustersConfig
 from ..io import PathConfig, logging as log
-from ..llms import LLMsConfig
+from ..llms import LLMsConfig, TransformersConfig
 from ..segmentation import TagsConfig
 
 
@@ -22,6 +22,7 @@ class Configs:
     llms = ConfigData("llms", LLMsConfig)
     paths = ConfigData("paths", PathConfig)
     tags = ConfigData("tags", TagsConfig)
+    transformers = ConfigData("transformers", TransformersConfig)
 
     @staticmethod
     def add(*cfgs_data: ConfigData):

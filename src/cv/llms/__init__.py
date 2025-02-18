@@ -6,4 +6,4 @@ from .base import (
     Nickname,
 )
 from .load import load_llm
-from .transformers import TransformersLLM
+from .transformers import TransformersConfig, TransformersLLM
