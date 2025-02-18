@@ -5,7 +5,6 @@ PROJECT_ROOT_DIR="$(realpath "$(dirname "${BASH_SOURCE[0]}")")"
 export PROJECT_ROOT_DIR
 
 # Add main and plugin code to PYTHONPATH.
-export PYTHONPATH="$SCRIPT_DIR"/src:"$SCRIPT_DIR"/plugins
 export PYTHONPATH="$PROJECT_ROOT_DIR"/src:"$PROJECT_ROOT_DIR"/plugins
 
 # Environment variables for launching without commands and configs.
