@@ -3,6 +3,7 @@ import logging
 
 import coma
 
+from ..consolidate import ConsolidateConfig
 from ..core import ClustersConfig
 from ..io import PathConfig, logging as log
 from ..llms import LLMsConfig
@@ -16,6 +17,7 @@ ConfigData = namedtuple("ConfigData", "id_ type_")
 class Configs:
     """Registry for all known configs."""
 
+    consolidate = ConfigData("consolidate", ConsolidateConfig)
     clusters = ConfigData("clusters", ClustersConfig)
     llms = ConfigData("llms", LLMsConfig)
     paths = ConfigData("paths", PathConfig)

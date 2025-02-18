@@ -37,10 +37,16 @@ class PathConfig:
 
     # Top-level folder for storing the raw LLM output. Each sub-folder is the
     # Nickname of a particular LLM.
-    raw_scores_dir: str = "${results_dir}/raw_scores/${run_id}"
+    raw_scores_dir: str = "${results_dir}/raw_scores"
 
     # The nickname or ID of the current run. Update this at runtime on the command line.
     run_id: str = "<missing-run-id>"
+
+    # The current runtime folder in which to store LLM output data.
+    run_dir: str = "${raw_scores_dir}/${run_id}"
+
+    # File containing the consolidation output for the current/latest run.
+    consolidate_file: str = "${results_dir}/consolidate/${run_id}.csv"
 
 
 T = TypeVar("T")

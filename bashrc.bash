@@ -20,6 +20,7 @@ export -f launch
 
 # Basic terminal auto-complete.
 complete -W "
+consolidate
 docx.to.json
 extract
 segment

@@ -1,3 +1,4 @@
+from . import consolidate
 from . import core
 from . import extract
 from . import io
