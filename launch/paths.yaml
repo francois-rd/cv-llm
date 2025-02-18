@@ -5,4 +5,7 @@ docx_transcript_dir: ${transcript_dir}/docx
 json_transcript_dir: ${transcript_dir}/json
 clustered_transcript_dir: ${transcript_dir}/clustered
 results_dir: ${root_dir}/results
-raw_scores_dir: ${results_dir}/raw_scores
+raw_scores_dir: ${results_dir}/raw_scores/${run_id}
+
+# The nickname or ID of the current run. Update this at runtime on the command line.
+run_id: <missing-run-id>

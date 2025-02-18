@@ -1,10 +1,11 @@
+from enum import Enum
 import sys
 import os
 
 import coma
 
 from .base import Configs as Cfgs, init
-from ..core import ClustersConfig, DefaultScoreParser
+from ..core import ClustersConfig, DefaultScoreParser, enum_from_str
 from ..extract import Extract
 from ..llms import LLMsConfig
 from ..segmentation import ConvertTagsToTranscript, TagsConfig, Tagger, Transcript
@@ -42,7 +43,20 @@ def segment(path: PathConfig, tags: TagsConfig, clusters: ClustersConfig):
             save_dataclass_json(output_file, transcript, indent=4)
 
 
-def extract(path: PathConfig, clusters: ClustersConfig, llms: LLMsConfig):
+class RerunProtocol(Enum):
+    """The protocol for treating existing output files during a rerun."""
+
+    NEVER = "NEVER"  # Never allow rerun. Raise an error if previous files exist.
+    MISSING = "MISSING"  # Allow a partial rerun. Only run missing files.
+    OVERWRITE = "OVERWRITE"  # Allow a full rerun. Overwrite every file.
+
+
+def extract(
+    path: PathConfig,
+    clusters: ClustersConfig,
+    llms: LLMsConfig,
+    rerun_protocol: RerunProtocol,
+):
     do_extract = Extract(clusters, llms, DefaultScoreParser)
     for root, _, files in os.walk(path.clustered_transcript_dir):
         for filename in files:
@@ -50,6 +64,18 @@ def extract(path: PathConfig, clusters: ClustersConfig, llms: LLMsConfig):
             file_path = str(os.path.join(root, filename))
             a_id = os.path.splitext(os.path.basename(filename))[0]
             output_file = f"{path.raw_scores_dir}/{llms.llm}/{a_id}.jsonl"
+            if os.path.exists(output_file):
+                if rerun_protocol == RerunProtocol.NEVER:
+                    raise ValueError(
+                        f"RerunProtocol set to '{rerun_protocol}' "
+                        f"but file exists: {output_file}"
+                    )
+                elif rerun_protocol == RerunProtocol.MISSING:
+                    continue
+                elif rerun_protocol == RerunProtocol.OVERWRITE:
+                    pass
+                else:
+                    raise ValueError(f"Unsupported RerunProtocol: {rerun_protocol}")
 
             # Use an LLM to extract data from the transcript.
             transcript = load_dataclass_json(file_path, t=Transcript)
@@ -65,9 +91,22 @@ def register():
         segment,
         **Cfgs.add(Cfgs.paths, Cfgs.tags, Cfgs.clusters),
     )
+
+    @coma.hooks.hook
+    def extract_pre_init_hook(known_args, configs):
+        protocol = enum_from_str(RerunProtocol, known_args.rerun_protocol)
+        configs["rerun_protocol"] = protocol
+
     coma.register(
         "extract",
         extract,
+        parser_hook=coma.hooks.parser_hook.factory(
+            "-r", "--rerun-protocol",
+            default="never",
+            choices=["never", "missing", "overwrite"],
+            help="set the protocol for treating existing output files during rerun",
+        ),
+        pre_init_hook=extract_pre_init_hook,
         **Cfgs.add(Cfgs.paths, Cfgs.clusters, Cfgs.llms),
     )
 

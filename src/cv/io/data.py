@@ -37,7 +37,10 @@ class PathConfig:
 
     # Top-level folder for storing the raw LLM output. Each sub-folder is the
     # Nickname of a particular LLM.
-    raw_scores_dir: str = "${results_dir}/raw_scores"
+    raw_scores_dir: str = "${results_dir}/raw_scores/${run_id}"
+
+    # The nickname or ID of the current run. Update this at runtime on the command line.
+    run_id: str = "<missing-run-id>"
 
 
 T = TypeVar("T")
