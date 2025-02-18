@@ -31,11 +31,18 @@ class PromptMaker:
 
     def __call__(self, transcript: Transcript, *args, **kwargs) -> list[ClusterPrompt]:
         results = []
-        for name, cluster in transcript.clusters.items():
+        for name, cluster in self._get_included_clusters(transcript):
             template = None if len(cluster.lines) == 0 else self._process(cluster)
             data = asdict(cluster.data.parser_data)
             results.append(ClusterPrompt(name, template, self.parser_type(**data)))
         return results
+
+    def _get_included_clusters(
+        self,
+        transcript: Transcript,
+    ) -> list[tuple[ClusterName, Cluster]]:
+        included = self.cfg.included_clusters
+        return [(k, v) for k, v in transcript.clusters.items() if k in included]
 
     def _process(self, cluster: Cluster) -> ChatPromptTemplate:
         system = SystemMessagePromptTemplate.from_template(self.cfg.system_prompt)

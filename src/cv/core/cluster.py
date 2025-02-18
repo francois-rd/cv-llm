@@ -25,6 +25,7 @@ class ClusterData:
 class ClustersConfig:
     system_prompt: Prompt
     cluster_template: Prompt = "{cluster_prompt}\nBe concise.\n\n{cluster_text}"
+    included_clusters: list[ClusterName] = field(default_factory=list)
     clusters: dict[ClusterName, ClusterData] = field(default_factory=dict)
 
 
