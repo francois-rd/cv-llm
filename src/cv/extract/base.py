@@ -1,10 +1,10 @@
 from dataclasses import dataclass
-from typing import Optional, Type
+from typing import Any, Optional, Type
 
 from langchain_core.runnables import Runnable, chain
 from langchain_core.runnables.base import RunnableEach
 
-from ..core import ClusterName, ClustersConfig, ScoreOutputParser
+from ..core import ClusterName, ClustersConfig, OutputParser
 from ..llms import LLMsConfig, load_llm
 from ..prompting import ClusterPrompt, PromptMaker
 from ..segmentation import Transcript
@@ -13,7 +13,7 @@ from ..segmentation import Transcript
 @dataclass
 class ClusterOutput:
     cluster_name: ClusterName
-    llm_score: Optional[float]
+    llm_output: Optional[Any]
     error_message: Optional[str]
 
 
@@ -22,7 +22,7 @@ class Extract:
         self,
         clusters: ClustersConfig,
         llms: LLMsConfig,
-        parser_type: Type[ScoreOutputParser],
+        parser_type: Type[OutputParser],
         *args,
         **kwargs,
     ):
@@ -50,7 +50,7 @@ class Extract:
             output = self.llm.invoke(p)
             return ClusterOutput(
                 cluster_name=p.name,
-                llm_score=p.parser(output.generated_text),
+                llm_output=p.parser(output.generated_text),
                 error_message=output.error_message,
             )
 

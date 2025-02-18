@@ -8,7 +8,7 @@ from langchain.prompts.chat import (
 )
 
 
-from ..core import Cluster, ClusterName, ClustersConfig, ScoreOutputParser, scrub
+from ..core import Cluster, ClusterName, ClustersConfig, OutputParser, scrub
 from ..segmentation import Transcript
 
 
@@ -21,11 +21,11 @@ class ClusterPrompt:
     template: ChatPromptTemplate
 
     # The output parser to use for this cluster.
-    parser: ScoreOutputParser
+    parser: OutputParser
 
 
 class PromptMaker:
-    def __init__(self, cfg: ClustersConfig, parser_type: Type[ScoreOutputParser]):
+    def __init__(self, cfg: ClustersConfig, parser_type: Type[OutputParser]):
         self.cfg = cfg
         self.parser_type = parser_type
 
