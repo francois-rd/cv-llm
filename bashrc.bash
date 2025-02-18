@@ -1,19 +1,21 @@
 #!/bin/bash
 
-# Find the path of where this script file lives.
-SCRIPT_DIR="$(realpath "$(dirname "${BASH_SOURCE[0]}")")"
+# Find the project root directory assuming this script file lives directly inside it.
+PROJECT_ROOT_DIR="$(realpath "$(dirname "${BASH_SOURCE[0]}")")"
+export PROJECT_ROOT_DIR
 
 # Add main and plugin code to PYTHONPATH.
 export PYTHONPATH="$SCRIPT_DIR"/src:"$SCRIPT_DIR"/plugins
+export PYTHONPATH="$PROJECT_ROOT_DIR"/src:"$PROJECT_ROOT_DIR"/plugins
 
 # Environment variables for launching without commands and configs.
-export DEFAULT_CONFIG_DIR="$SCRIPT_DIR"/launch
+export DEFAULT_CONFIG_DIR="$PROJECT_ROOT_DIR"/launch
 export DEFAULT_COMMAND="test.launch"
 
 # Alias for program entry.
 launch () {
   pushd "$DEFAULT_CONFIG_DIR" > /dev/null || exit
-  python "$SCRIPT_DIR"/src/main.py "$@"
+  python "$PROJECT_ROOT_DIR"/src/main.py "$@"
   popd > /dev/null || exit
 }
 export -f launch
