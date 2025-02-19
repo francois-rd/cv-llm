@@ -26,7 +26,8 @@ class LLMOutput:
 
 
 class LLM:
-    """Wrapper interface for all LLM implementations. """
+    """Wrapper interface for all LLM implementations."""
+
     def __init__(self, nickname: Nickname, *args, **kwargs):
         self.nickname = nickname
 

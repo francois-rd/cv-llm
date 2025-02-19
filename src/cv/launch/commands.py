@@ -61,7 +61,10 @@ def extract(
     rerun_protocol: RerunProtocol,
 ):
     do_extract = Extract(
-        clusters, llms, DefaultScoreParser, transformers_cfg=transformers_cfg,
+        clusters,
+        llms,
+        DefaultScoreParser,
+        transformers_cfg=transformers_cfg,
     )
     for root, _, files in os.walk(paths.clustered_transcript_dir):
         for filename in files:
@@ -152,7 +155,8 @@ def register():
         "extract",
         extract,
         parser_hook=coma.hooks.parser_hook.factory(
-            "-r", "--rerun-protocol",
+            "-r",
+            "--rerun-protocol",
             default="never",
             choices=["never", "missing", "overwrite"],
             help="set the protocol for treating existing output files during rerun",

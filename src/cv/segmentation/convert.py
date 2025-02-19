@@ -53,6 +53,7 @@ class ConvertTagsToTranscript:
        In other words, mix-tag lines don't have to belong to the same cluster.
        Instead, their content is replicated across clusters.
     """
+
     def __init__(self, clusters_cfg: ClustersConfig):
         self.clusters_cfg = clusters_cfg
         self.q_id_to_cluster_map = {}
@@ -93,10 +94,7 @@ class ConvertTagsToTranscript:
             self._fill_cluster(cluster, lines, all_spans)
 
     def _find_all_spans(self, tags: list[Optional[Tag]]):
-        return {
-            q_id: self._find_span(q_id, tags)
-            for q_id in self.q_id_to_cluster_map
-        }
+        return {q_id: self._find_span(q_id, tags) for q_id in self.q_id_to_cluster_map}
 
     @staticmethod
     def _find_span(q_id: QuestionId, tags: list[Optional[Tag]]) -> Span:
@@ -128,7 +126,7 @@ class ConvertTagsToTranscript:
     ):
         spans = self._find_cluster_spans(cluster, all_spans)
         for span in self._merge_and_sort_overlapping_spans(spans):
-            cluster.lines.extend(lines[span[0]:span[1] + 1])
+            cluster.lines.extend(lines[span[0] : span[1] + 1])
 
     @staticmethod
     def _find_cluster_spans(

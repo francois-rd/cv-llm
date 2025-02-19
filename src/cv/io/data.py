@@ -132,7 +132,11 @@ def save_dataclass_jsonl(
     save_lines(file_path, *objs, to_string_fn=helper)
 
 
-def dumps_dataclasses(*objs: Any, dict_factory: Callable = enum_dict_factory, **kwargs) -> str:
+def dumps_dataclasses(
+    *objs: Any,
+    dict_factory: Callable = enum_dict_factory,
+    **kwargs,
+) -> str:
     """
     Converts *objs to a string that represents a JSON list of dicts, one for each object.
     kwargs are passed to json.dump(). dict_factory is passed to dataclasses.asdict().
@@ -141,7 +145,10 @@ def dumps_dataclasses(*objs: Any, dict_factory: Callable = enum_dict_factory, **
     return json.dumps([asdict(o, dict_factory=dict_factory) for o in objs], **kwargs)
 
 
-def to_dicts(*objs: Any, dict_factory: Callable = enum_dict_factory) -> list[dict[str, Any]]:
+def to_dicts(
+    *objs: Any,
+    dict_factory: Callable = enum_dict_factory,
+) -> list[dict[str, Any]]:
     """Converts each dataclass object to a plain dict. dict_factory is passed to dataclasses.asdict()"""
     return [asdict(o, dict_factory=dict_factory) for o in objs]
 
@@ -187,7 +194,10 @@ def load_dataclass_jsonl(
     Loads dataclass objects of type 't' from the file path. kwargs are passed
     to json.loads(). dacite_config is passed to dacite.from_dict().
     """
-    return [from_dict(t, json.loads(line.strip(), **kwargs), config=dacite_config) for line in load_lines(file_path)]
+    return [
+        from_dict(t, json.loads(line.strip(), **kwargs), config=dacite_config)
+        for line in load_lines(file_path)
+    ]
 
 
 def loads_dataclass_jsonl(
@@ -203,7 +213,11 @@ def loads_dataclass_jsonl(
     return [from_dict(t, d, config=dacite_config) for d in json.loads(s, **kwargs)]
 
 
-def from_dicts(t: Type[T], *dicts: dict[str, Any], dacite_config: Config = DEFAULT_CONFIG) -> list[T]:
+def from_dicts(
+    t: Type[T],
+    *dicts: dict[str, Any],
+    dacite_config: Config = DEFAULT_CONFIG,
+) -> list[T]:
     """
     Converts each dict in 'dicts' into a dataclass object of type 't'. dacite_config is passed to dacite.from_dict().
     """

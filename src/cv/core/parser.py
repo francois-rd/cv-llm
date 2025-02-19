@@ -108,7 +108,13 @@ class JSONParser(StringOutputParser):
         for string in [generated_text, *self.pattern.findall(generated_text)]:
             try:
                 return json.loads(string, **kwargs)[self.schema_key]
-            except (AttributeError, KeyError, TypeError, ValueError, json.decoder.JSONDecodeError):
+            except (
+                AttributeError,
+                KeyError,
+                TypeError,
+                ValueError,
+                json.decoder.JSONDecodeError,
+            ):
                 continue
         return None
 
@@ -163,7 +169,7 @@ class DefaultScoreParser(ScoreOutputParser):
         :param sub_parsers: Optional list of sub-parsers to call, in order.
         """
         super().__init__()
-        self.min_score, self.max_score = min_score, max_score,
+        self.min_score, self.max_score = min_score, max_score
         self.force_int, self.int_tol = force_int, int_tol
         self.parsers = self.default_sub_parsers if sub_parsers is None else sub_parsers
 
@@ -188,7 +194,6 @@ class DefaultStringParser(StringOutputParser):
     # NOTE: These are in approximate descending order of confidence in the pattern.
     default_sub_parsers: list[StringOutputParser] = [
         # TODO: EnumParser(NationalityOrEthnicityEnum),
-
         # TODO: Depending on what we are looking for, we may have more than 1 \w+ in the answer...
         JSONParser("answer"),
         JSONParser("Answer"),
