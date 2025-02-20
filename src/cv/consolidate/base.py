@@ -1,12 +1,11 @@
 from dataclasses import dataclass, field
 from typing import Any, Callable
-import os
 
 import pandas as pd
 
 from ..core import ClusterName, ClustersConfig
 from ..extract import ClusterOutput
-from ..io import ensure_path
+from ..io import ensure_path, walk_fn
 from ..llms import Nickname
 
 
@@ -59,18 +58,16 @@ class Consolidator:
         root_dir: str,
     ) -> dict[str, dict[str, _IntermediaryResult]]:
         result_by_aid = {}
-        for root, _, files in os.walk(root_dir):
-            for filename in files:
-                a_id = self.assign_id(filename)
-                if a_id in self.cfg.assign_id_blacklist:
-                    continue
-                run_id, llm = self.run_id_and_llm(root)
-                if run_id not in self.cfg.ordered_run_ids or llm not in self.cfg.llms:
-                    continue
-                data = self.load(os.path.join(root, filename))
-                data = {c.cluster_name: c for c in data}
-                result = _IntermediaryResult(run_id, llm, data)
-                result_by_aid.setdefault(a_id, {})[run_id] = result
+        for data, walk in walk_fn(root_dir, self.load):
+            a_id = self.assign_id(walk.base)
+            if a_id in self.cfg.assign_id_blacklist:
+                continue
+            run_id, llm = self.run_id_and_llm(walk.root)
+            if run_id not in self.cfg.ordered_run_ids or llm not in self.cfg.llms:
+                continue
+            data = {c.cluster_name: c for c in data}
+            result = _IntermediaryResult(run_id, llm, data)
+            result_by_aid.setdefault(a_id, {})[run_id] = result
         return result_by_aid
 
     def _keep_only_latest(

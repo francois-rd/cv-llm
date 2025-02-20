@@ -18,5 +18,15 @@ from .data import (
     load_records_csv,
     to_dicts,
     from_dicts,
+    walk_files,
+    walk_fn,
+    walk_docx,
+    walk_lines,
+    walk_json,
+    walk_jsonl,
+    walk_dataclass_json,
+    walk_dataclass_jsonl,
+    walk_records_csv,
+    Walk,
 )
 from .logging import init_logger, get_logger

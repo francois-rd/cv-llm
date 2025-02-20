@@ -12,37 +12,31 @@ from ..llms import LLMsConfig, TransformersConfig
 from ..segmentation import ConvertTagsToTranscript, TagsConfig, Tagger, Transcript
 from ..io import (
     PathConfig,
-    load_dataclass_json,
+    walk_dataclass_json,
     load_dataclass_jsonl,
-    load_docx,
-    load_json,
     save_json,
     save_dataclass_json,
     save_dataclass_jsonl,
+    walk_docx,
+    walk_json,
 )
 
 
 def docx_to_json(paths: PathConfig):
-    for root, _, files in os.walk(paths.docx_transcript_dir):
-        for filename in files:
-            # Extract the 'assign ID' to create the output filename.
-            a_id = filename.split("_")[0]
-            output_file = str(os.path.join(paths.json_transcript_dir, a_id + ".json"))
-
-            # Convert the data and write to file in JSON format.
-            lines = load_docx(str(os.path.join(root, filename)))
-            save_json(output_file, lines, indent=4)
+    for lines, walk in walk_docx(paths.docx_transcript_dir):
+        # Extract the 'assign ID' to create the output filename.
+        a_id = walk.base.split("_")[0]
+        output_file = str(os.path.join(paths.json_transcript_dir, a_id + ".json"))
+        save_json(output_file, lines, indent=4)
 
 
 def segment(paths: PathConfig, tags: TagsConfig, clusters: ClustersConfig):
     tag = Tagger(tags)
     to_transcript = ConvertTagsToTranscript(clusters)
-    for root, _, files in os.walk(paths.json_transcript_dir):
-        for filename in files:
-            lines = load_json(str(os.path.join(root, filename)))
-            output_file = str(os.path.join(paths.clustered_transcript_dir, filename))
-            transcript = to_transcript(lines, tag(lines))
-            save_dataclass_json(output_file, transcript, indent=4)
+    for lines, walk in walk_json(paths.json_transcript_dir):
+        transcript = to_transcript(lines, tag(lines))
+        output_file = walk.map(paths.clustered_transcript_dir)
+        save_dataclass_json(output_file, transcript, indent=4)
 
 
 class RerunProtocol(Enum):
@@ -66,28 +60,26 @@ def extract(
         DefaultScoreParser,
         transformers_cfg=transformers_cfg,
     )
-    for root, _, files in os.walk(paths.clustered_transcript_dir):
-        for filename in files:
-            # Manipulate file paths.
-            file_path = str(os.path.join(root, filename))
-            a_id = os.path.splitext(os.path.basename(filename))[0]
-            output_file = f"{paths.run_dir}/{llms.llm}/{a_id}.jsonl"
-            if os.path.exists(output_file):
-                if rerun_protocol == RerunProtocol.NEVER:
-                    raise ValueError(
-                        f"RerunProtocol set to '{rerun_protocol}' "
-                        f"but file exists: {output_file}"
-                    )
-                elif rerun_protocol == RerunProtocol.MISSING:
-                    continue
-                elif rerun_protocol == RerunProtocol.OVERWRITE:
-                    pass
-                else:
-                    raise ValueError(f"Unsupported RerunProtocol: {rerun_protocol}")
+    root = paths.clustered_transcript_dir
+    for transcript, walk in walk_dataclass_json(root, t=Transcript):
+        # Manipulate file paths.
+        a_id = os.path.splitext(walk.base)[0]
+        output_file = f"{paths.run_dir}/{llms.llm}/{a_id}.jsonl"
+        if os.path.exists(output_file):
+            if rerun_protocol == RerunProtocol.NEVER:
+                raise ValueError(
+                    f"RerunProtocol set to '{rerun_protocol}' "
+                    f"but file exists: {output_file}"
+                )
+            elif rerun_protocol == RerunProtocol.MISSING:
+                continue
+            elif rerun_protocol == RerunProtocol.OVERWRITE:
+                pass
+            else:
+                raise ValueError(f"Unsupported RerunProtocol: {rerun_protocol}")
 
-            # Use an LLM to extract data from the transcript.
-            transcript = load_dataclass_json(file_path, t=Transcript)
-            save_dataclass_jsonl(output_file, *do_extract(transcript))
+        # Use an LLM to extract data from the transcript.
+        save_dataclass_jsonl(output_file, *do_extract(transcript))
 
 
 class Consolidate:

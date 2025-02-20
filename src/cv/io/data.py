@@ -1,4 +1,4 @@
-from typing import Any, Callable, Type, TypeVar
+from typing import Any, Callable, Iterable, Optional, Type, TypeVar
 from dataclasses import asdict, dataclass
 from pathlib import Path
 from enum import Enum
@@ -50,6 +50,26 @@ class PathConfig:
 
 
 T = TypeVar("T")
+
+
+@dataclass
+class Walk:
+    """Contains OS walk results for a specific file."""
+
+    # The directory path to the file.
+    root: str
+
+    # The base filename of the file.
+    base: str
+
+    # The full path to the file.
+    path: str
+
+    def map(self, new_root: str, do_ensure_path: bool = False) -> str:
+        """Convenience method for remapping the 'base' to a new root."""
+        new_path = str(os.path.join(new_root, self.base))
+        return ensure_path(new_path) if do_ensure_path else new_path
+
 
 # Default dacite config adds support for both Enum and tuple types.
 DEFAULT_CONFIG = Config(cast=[Enum, tuple])
@@ -235,5 +255,102 @@ def load_records_csv(file_path: str, **kwargs) -> list[dict]:
 
 
 def load_docx(file_path: str) -> list[str]:
+    """Loads each line from the file path, one string per line. Skips empty lines."""
     lines = [paragraph.text for paragraph in Document(file_path).paragraphs]
     return [line.strip() for line in lines if line.strip()]
+
+
+def walk_files(
+    root: str,
+    on_error: Optional[Callable[[OSError], Any]] = None,
+    follow_links: bool = False,
+) -> Iterable[Walk]:
+    """Performs os.walk. Skips directories. Yields a 'Walk' for each file."""
+    for r, _, files in os.walk(root, onerror=on_error, followlinks=follow_links):
+        for f in files:
+            yield Walk(root=str(r), base=str(f), path=str(os.path.join(r, f)))
+
+
+def walk_fn(root: str, fn: Callable, *args, **kwargs) -> Iterable[tuple[Any, Walk]]:
+    """
+    For each 'Walk' yielded from 'walk_files(root)', applies 'fn' to 'walk.path'.
+    Yields a tuple where the first element is the 'fn' result and the second
+    element is the original 'walk'. args and kwargs are passed directly to 'fn'.
+    """
+    for walk in walk_files(root):
+        yield fn(walk.path, *args, **kwargs), walk
+
+
+def walk_lines(root: str) -> Iterable[tuple[list[str], Walk]]:
+    """Yields lines from each file in the root directory, one string per line."""
+    yield from walk_fn(root, load_lines)
+
+
+def walk_json(root: str, **kwargs) -> Iterable[tuple[Any, Walk]]:
+    """
+    Yields a JSON object each file in the root directory.
+    kwargs are passed to json.load().
+    """
+    yield from walk_fn(root, load_json, **kwargs)
+
+
+def walk_jsonl(root: str, **kwargs) -> Iterable[tuple[list[Any], Walk]]:
+    """
+    Yields JSON objects from each file in the root directory.
+    kwargs are passed to json.loads().
+    """
+    yield from walk_fn(root, load_jsonl, **kwargs)
+
+
+def walk_dataclass_json(
+    root: str,
+    t: Type[T],
+    dacite_config: Config = DEFAULT_CONFIG,
+    **kwargs,
+) -> Iterable[tuple[T, Walk]]:
+    """
+    Yields a dataclass object of type 't' from each file in the root directory.
+    kwargs are passed to json.load(). dacite_config is passed to dacite.from_dict().
+    """
+    yield from walk_fn(
+        root,
+        load_dataclass_json,
+        t=t,
+        dacite_config=dacite_config,
+        **kwargs,
+    )
+
+
+def walk_dataclass_jsonl(
+    root: str,
+    t: Type[T],
+    dacite_config: Config = DEFAULT_CONFIG,
+    **kwargs,
+) -> Iterable[tuple[list[T], Walk]]:
+    """
+    Yields dataclass objects of type 't' from each file in the root directory.
+    kwargs are passed to json.loads(). dacite_config is passed to dacite.from_dict().
+    """
+    yield from walk_fn(
+        root,
+        load_dataclass_jsonl,
+        t=t,
+        dacite_config=dacite_config,
+        **kwargs,
+    )
+
+
+def walk_records_csv(root: str, **kwargs) -> Iterable[tuple[list[dict], Walk]]:
+    """
+    Yields records (one per CSV row) from each file in the root directory.
+    kwargs are passed to pandas.read_csv().
+    """
+    yield from walk_fn(root, load_records_csv, **kwargs)
+
+
+def walk_docx(root: str) -> Iterable[tuple[list[str], Walk]]:
+    """
+    Loads each line from each file in the root directory, one string per line.
+    Skips empty lines.
+    """
+    yield from walk_fn(root, load_docx)
