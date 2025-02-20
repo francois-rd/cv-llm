@@ -1,12 +1,13 @@
 from typing import TypeVar, Type
+from enum import Enum
 
 
 def scrub(text: str) -> str:
-    """Removes '{' and '}' characters from the text, which cause langchain formatting errors."""
+    """Removes '{' and '}' from the text, which cause string format errors."""
     return text.replace("{", "").replace("}", "")
 
 
-E = TypeVar("E")
+E = TypeVar("E", bound=Enum)
 
 
 def enum_from_str(enum_type: Type[E], s: str) -> E:
