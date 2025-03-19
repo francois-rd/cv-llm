@@ -32,10 +32,7 @@ class LLM:
         self.nickname = nickname
 
     def invoke(self, prompt: ClusterPrompt, *args, **kwargs) -> LLMOutput:
-        """
-        Invokes the underlying LLM, return its output as a string or None if invocation failed.
-        Inputs are subclass dependent and buried in the *args and **kwargs.
-        """
+        """Invokes the underlying LLM, returning its output."""
         raise NotImplementedError
 
 

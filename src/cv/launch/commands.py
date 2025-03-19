@@ -1,24 +1,47 @@
+from datetime import date
+from typing import Union
 from enum import Enum
 import sys
 import os
 
 import coma
+import pandas as pd
 
 from .base import Configs as Cfgs, init
+
+from ..analyze import HistogramMaker
 from ..consolidate import ConsolidateConfig, Consolidator
-from ..core import ClustersConfig, DefaultScoreParser, enum_from_str
-from ..extract import Extract, ClusterOutput
-from ..llms import LLMsConfig, TransformersConfig
+from ..core import ClustersConfig, FewShotSampler
+from ..extract import Extract, ExtractionDirHandler
 from ..segmentation import ConvertTagsToTranscript, TagsConfig, Tagger, Transcript
+from ..llms import (
+    DummyConfig,
+    LLMImplementation,
+    LLMsConfig,
+    MISSING_NICKNAME,
+    TransformersConfig,
+)
 from ..io import (
     PathConfig,
+    ensure_path,
+    enum_from_str,
     walk_dataclass_json,
-    load_dataclass_jsonl,
+    walk_dataclass_jsonl,
+    save_lines,
     save_json,
     save_dataclass_json,
     save_dataclass_jsonl,
     walk_docx,
+    walk_files,
     walk_json,
+)
+from ..validation import (
+    ComparisonAggregator,
+    GroundTruthComparator,
+    GroundTruthParser,
+    ParsedLabelData,
+    ValidationConfig,
+    test_comparators,
 )
 
 
@@ -46,91 +69,146 @@ class RerunProtocol(Enum):
     MISSING = "MISSING"  # Allow a partial rerun. Only run missing files.
     OVERWRITE = "OVERWRITE"  # Allow a full rerun. Overwrite every file.
 
-
-def extract(
-    paths: PathConfig,
-    clusters: ClustersConfig,
-    llms: LLMsConfig,
-    transformers_cfg: TransformersConfig,
-    rerun_protocol: RerunProtocol,
-):
-    do_extract = Extract(
-        clusters,
-        llms,
-        DefaultScoreParser,
-        transformers_cfg=transformers_cfg,
-    )
-    root = paths.clustered_transcript_dir
-    for transcript, walk in walk_dataclass_json(root, t=Transcript):
-        # Manipulate file paths.
-        a_id = os.path.splitext(walk.base)[0]
-        output_file = f"{paths.run_dir}/{llms.llm}/{a_id}.jsonl"
-        if os.path.exists(output_file):
-            if rerun_protocol == RerunProtocol.NEVER:
-                raise ValueError(
-                    f"RerunProtocol set to '{rerun_protocol}' "
-                    f"but file exists: {output_file}"
-                )
-            elif rerun_protocol == RerunProtocol.MISSING:
-                continue
-            elif rerun_protocol == RerunProtocol.OVERWRITE:
-                pass
-            else:
-                raise ValueError(f"Unsupported RerunProtocol: {rerun_protocol}")
-
-        # Use an LLM to extract data from the transcript.
-        save_dataclass_jsonl(output_file, *do_extract(transcript))
+    def skip(self, output_file: str):
+        if not os.path.exists(output_file):
+            return False
+        if self == RerunProtocol.NEVER:
+            raise ValueError(
+                f"RerunProtocol set to '{self}' but file exists: {output_file}",
+            )
+        elif self == RerunProtocol.MISSING:
+            return True
+        elif self == RerunProtocol.OVERWRITE:
+            return False
+        else:
+            raise ValueError(f"Unsupported RerunProtocol: {self}")
 
 
-class Consolidate:
+class ReferenceDate:
+    def __init__(self, paths: PathConfig):
+        df = pd.read_csv(paths.master_file, index_col=False)
+        data = df[["assigned_id", "date_interview"]].to_dict()
+        data = dict(zip(data["assigned_id"].values(), data["date_interview"].values()))
+        self.data = {a_id: date.fromisoformat(d) for a_id, d in data.items()}
+
+    def get(self, assign_id: str) -> date:
+        return self.data[assign_id]
+
+
+class ExtractCommand:
     def __init__(
         self,
         paths: PathConfig,
         clusters: ClustersConfig,
-        consolidate: ConsolidateConfig,
+        llms: LLMsConfig,
+        llm_impl_cfg: Union[DummyConfig, TransformersConfig],
+        rerun_protocol: RerunProtocol,
     ):
-        self.paths = paths
-        self.consolidate = Consolidator(
-            consolidate,
-            clusters,
-            self.get_assign_id,
-            self.get_run_id_and_llm,
-            self.load_data,
+        self.paths, self.clusters, self.llms = paths, clusters, llms
+        self.rerun_protocol = rerun_protocol
+        sampler = FewShotSampler(paths)
+        self.do_extract = Extract(
+            clusters=clusters,
+            llms=llms,
+            sampler=sampler,
+            llm_cfg=llm_impl_cfg,
+            dummy_cheat_sampler=sampler,
         )
+        self.pathing = ExtractionDirHandler(paths)
+        self.get_reference = ReferenceDate(paths).get
 
     def run(self):
-        self.consolidate(self.paths.raw_scores_dir, self.paths.consolidate_file)
+        root = self.paths.clustered_transcript_dir
+        for transcript, walk in walk_dataclass_json(root, t=Transcript):
+            output_file = self.pathing.get_extraction_output_path(
+                self.llms.llm, walk, ext=".jsonl",
+            )
+            if self.rerun_protocol.skip(output_file):
+                continue
+            a_id = self.pathing.get_assign_id(walk)
+            extractions = self.do_extract(
+                transcript, reference_date=self.get_reference(a_id), assign_id=a_id,
+            )
+            save_dataclass_jsonl(output_file, *extractions)
 
-    @staticmethod
-    def get_assign_id(filename: str) -> str:
-        return os.path.splitext(os.path.basename(filename))[0]
 
-    def get_run_id_and_llm(self, path: str) -> tuple[str, str]:
-        relpath = os.path.relpath(path, start=self.paths.raw_scores_dir)
-        run_id = self._get_run_id(relpath)
-        return run_id, os.path.relpath(relpath, start=run_id)
+def parse_labels(paths: PathConfig, clusters: ClustersConfig):
+    parser = GroundTruthParser(clusters)
+    get_reference = ReferenceDate(paths).get
+    for label_data, walk in walk_json(paths.labeled_transcript_dir):
+        a_id = walk.no_ext()
+        reference = get_reference(a_id)
+        parsed_labels = parser(a_id, label_data, reference_date=reference)
+        output_file = walk.map(paths.parsed_labels_dir, ext=".jsonl")
+        save_dataclass_jsonl(output_file, *parsed_labels)
 
-    @staticmethod
-    def _get_run_id(path: str) -> str:
-        top_level, current_level = None, path
-        while True:
-            current_level = os.path.dirname(current_level)
-            if current_level == "":
-                break
-            else:
-                top_level = current_level
-        if top_level is None:
-            raise ValueError
-        return str(top_level)
 
-    @staticmethod
-    def load_data(file_path: str) -> list[ClusterOutput]:
-        return load_dataclass_jsonl(file_path, t=ClusterOutput)
+def mini_validation(
+    paths: PathConfig,
+    clusters: ClustersConfig,
+    validation: ValidationConfig,
+):
+    labels_by_aid = {}
+    pathing = ExtractionDirHandler(paths)
+    labels_path = paths.parsed_labels_dir
+    for parsed_labels, walk in walk_dataclass_jsonl(labels_path, t=ParsedLabelData):
+        labels_by_aid[walk.no_ext()] = parsed_labels
+
+    comparison_per_run_and_llm = {}
+    compare = GroundTruthComparator(clusters)
+    for data, walk in pathing.walk_extractions():
+        a_id = pathing.get_assign_id(walk)
+        run_id, llm = pathing.get_run_id_and_llm(walk)
+        if run_id not in validation.run_ids_to_include:
+            continue
+        if llm not in validation.llms_to_include:
+            continue
+        comparisons = comparison_per_run_and_llm.setdefault((run_id, llm), [])
+        comparisons.append(compare(a_id, data, labels_by_aid[a_id]))
+
+    aggregate = ComparisonAggregator(validation.cluster_column_name)
+    for (run_id, llm), comparisons in comparison_per_run_and_llm.items():
+        result = aggregate(comparisons)
+        output_dir = os.path.join(paths.aggregate_scores_dir, run_id, llm)
+        for i, df in enumerate(result.few_shot):
+            output_file = os.path.join(output_dir, f"few_shot_top_{i + 1}.csv")
+            df.to_csv(ensure_path(output_file), index=False)
+        for i, df in enumerate(result.other):
+            output_file = os.path.join(output_dir, f"other_top_{i + 1}.csv")
+            df.to_csv(ensure_path(output_file), index=False)
+
+
+def consolidate_(
+    paths: PathConfig,
+    clusters: ClustersConfig,
+    consolidate: ConsolidateConfig,
+):
+    pathing = ExtractionDirHandler(paths)
+    Consolidator(consolidate, clusters, pathing)(paths.consolidate_dir)
+
+
+def analyze_histogram(
+    paths: PathConfig,
+    clusters: ClustersConfig,
+    consolidate: ConsolidateConfig,
+    rerun_protocol: RerunProtocol,
+):
+    make_histograms = HistogramMaker(clusters, consolidate)
+    for walk in walk_files(paths.consolidate_dir):
+        output_file = walk.map(new_root=paths.analysis_dir, ext=".txt")
+        if rerun_protocol.skip(output_file):
+            continue
+        histograms = make_histograms(walk.path)
+        save_lines(
+            output_file, *histograms, to_string_fn=lambda h: h.make_report() + "\n\n",
+        )
 
 
 def register():
     """Registers all known commands with Coma."""
     coma.register("test.launch", lambda: print("Successfully launched."))
+    coma.register("test.comp", test_comparators)
+
     coma.register("docx.to.json", docx_to_json, **Cfgs.add(Cfgs.paths))
     coma.register(
         "segment",
@@ -139,27 +217,73 @@ def register():
     )
 
     @coma.hooks.hook
-    def extract_pre_init_hook(known_args, configs):
+    def extract_pre_config_hook(known_args, unknown_args, configs):
+        """
+        Preloads just the LLMsConfig to use its 'implementation' field to choose
+        which LLM implementation's config to add to 'configs' (in place).
+        """
+        # Preload just the LLMsConfig.
+        llm_cfg = coma.hooks.config_hook.single_load_and_write_factory(
+            Cfgs.llms.id_, write_on_fnf=False,
+        )(known_args=known_args, configs=configs)
+        llm_cfg = coma.hooks.post_config_hook.single_cli_override_factory(
+            Cfgs.llms.id_, coma.config.cli.override_factory(sep="::"),
+        )(unknown_args=unknown_args, configs=llm_cfg)
+        cfg: LLMsConfig = llm_cfg[Cfgs.llms.id_]
+
+        # Add the right LLM config to 'configs' (in place).
+        if cfg.llm == MISSING_NICKNAME:
+            raise ValueError(f"Missing runtime LLM: {cfg.llm}")
+        if cfg.implementation == LLMImplementation.MISSING:
+            raise ValueError(f"Missing implementation type for LLM: {cfg.llm}")
+        elif cfg.implementation == LLMImplementation.DUMMY:
+            llm_impl = Cfgs.dummy
+        elif cfg.implementation == LLMImplementation.HF_TRANSFORMERS:
+            llm_impl = Cfgs.transformers
+        else:
+            raise ValueError(
+                f"Unsupported LLM implementation type: {cfg.implementation}",
+            )
+        configs[llm_impl.id_] = llm_impl.type_
+
+    rerun_parser_hook = coma.hooks.parser_hook.factory(
+        "-p",
+        "--rerun-protocol",
+        default="never",
+        choices=["never", "missing", "overwrite"],
+        help="set the protocol for treating existing output files during rerun",
+    )
+
+    @coma.hooks.hook
+    def rerun_pre_init_hook(known_args, configs):
         protocol = enum_from_str(RerunProtocol, known_args.rerun_protocol)
         configs["rerun_protocol"] = protocol
 
     coma.register(
         "extract",
-        extract,
-        parser_hook=coma.hooks.parser_hook.factory(
-            "-r",
-            "--rerun-protocol",
-            default="never",
-            choices=["never", "missing", "overwrite"],
-            help="set the protocol for treating existing output files during rerun",
-        ),
-        pre_init_hook=extract_pre_init_hook,
-        **Cfgs.add(Cfgs.paths, Cfgs.clusters, Cfgs.llms, Cfgs.transformers),
+        ExtractCommand,
+        parser_hook=rerun_parser_hook,
+        pre_config_hook=extract_pre_config_hook,
+        pre_init_hook=rerun_pre_init_hook,
+        **Cfgs.add(Cfgs.paths, Cfgs.clusters, Cfgs.llms),
     )
 
+    coma.register("parse.labels", parse_labels, **Cfgs.add(Cfgs.paths, Cfgs.clusters))
+    coma.register(
+        "mini.validation",
+        mini_validation,
+        **Cfgs.add(Cfgs.paths, Cfgs.clusters, Cfgs.validation),
+    )
     coma.register(
         "consolidate",
-        Consolidate,
+        consolidate_,
+        **Cfgs.add(Cfgs.paths, Cfgs.clusters, Cfgs.consolidate),
+    )
+    coma.register(
+        "analyze.histogram",
+        analyze_histogram,
+        parser_hook=rerun_parser_hook,
+        pre_init_hook=rerun_pre_init_hook,
         **Cfgs.add(Cfgs.paths, Cfgs.clusters, Cfgs.consolidate),
     )
 

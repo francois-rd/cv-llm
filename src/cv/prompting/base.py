@@ -1,15 +1,19 @@
-from dataclasses import asdict, dataclass
-from typing import Type
+from dataclasses import dataclass
+from typing import Optional
+from enum import Enum
 
-from langchain.prompts.chat import (
-    ChatPromptTemplate,
-    HumanMessagePromptTemplate,
-    SystemMessagePromptTemplate,
-)
-
-
-from ..core import Cluster, ClusterName, ClustersConfig, OutputParser, scrub
+from ..core import Cluster, ClusterName, ClustersConfig, FewShotSampler, Lines
+from ..io import scrub
 from ..segmentation import Transcript
+
+
+class MessageType(Enum):
+    SYSTEM = "SYSTEM"
+    USER = "USER"
+    ASSISTANT = "ASSISTANT"
+
+
+Message = tuple[MessageType, str]
 
 
 @dataclass
@@ -17,38 +21,64 @@ class ClusterPrompt:
     # The name of the cluster.
     name: ClusterName
 
-    # The langchain template for the cluster.
-    template: ChatPromptTemplate
-
-    # The output parser to use for this cluster.
-    parser: OutputParser
+    # The langchain-like list of template messages for the cluster.
+    messages: Optional[list[Message]]
 
 
 class PromptMaker:
-    def __init__(self, cfg: ClustersConfig, parser_type: Type[OutputParser]):
+    def __init__(self, cfg: ClustersConfig, sampler: FewShotSampler):
         self.cfg = cfg
-        self.parser_type = parser_type
+        self.sampler = sampler
 
     def __call__(self, transcript: Transcript, *args, **kwargs) -> list[ClusterPrompt]:
         results = []
-        for name, cluster in self._get_included_clusters(transcript):
-            template = None if len(cluster.lines) == 0 else self._process(cluster)
-            data = asdict(cluster.data.parser_data)
-            results.append(ClusterPrompt(name, template, self.parser_type(**data)))
+        for name, cluster in self._get_included_clusters(transcript).items():
+            if cluster is None:
+                results.append(ClusterPrompt(name, None))
+            else:
+                template = self._make_template(name, cluster, **kwargs)
+                results.append(ClusterPrompt(name, template))
         return results
 
     def _get_included_clusters(
         self,
         transcript: Transcript,
-    ) -> list[tuple[ClusterName, Cluster]]:
+    ) -> dict[ClusterName, Cluster]:
         included = self.cfg.included_clusters
-        return [(k, v) for k, v in transcript.clusters.items() if k in included]
+        return {k: v for k, v in transcript.clusters.items() if k in included}
 
-    def _process(self, cluster: Cluster) -> ChatPromptTemplate:
-        system = SystemMessagePromptTemplate.from_template(self.cfg.system_prompt)
-        template = self.cfg.cluster_template.format(
-            cluster_prompt=cluster.data.prompt,
-            cluster_text=scrub("\n".join(cluster.lines)),
-        )
-        human = HumanMessagePromptTemplate.from_template(template)
-        return system + human
+    def _make_template(
+        self,
+        name: ClusterName,
+        cluster: Cluster,
+        **kwargs,
+    ) -> list[Message]:
+        system_prompt = self.cfg.system_prompt_options[cluster.data.system_prompt_index]
+        messages = [(MessageType.SYSTEM, system_prompt.format(**kwargs))]
+        instruction = cluster.data.prompt.format(**kwargs)
+        delimiter = self.cfg.instruction_prompt_to_sample_delimiter
+        first, a_ids = True, cluster.data.few_shot_assign_ids
+        for a_id in a_ids:
+            data = self.sampler.get(name, a_id)
+            if data is None:
+                raise ValueError("Missing labels cannot generate few-shot samples.")
+            template = self._make_sample(data.lines, first, instruction, delimiter)
+            messages.append((MessageType.USER, template))
+            messages.append((MessageType.ASSISTANT, str(data.label)))
+            first = False
+        # NOTE: Yes, we reuse first here deliberately.
+        template = self._make_sample(cluster.lines, first, instruction, delimiter)
+        messages.append((MessageType.USER, template))
+        return messages
+
+    def _make_sample(
+        self,
+        lines: Lines,
+        is_first: bool,
+        instruction: str,
+        delimiter: str,
+    ) -> str:
+        template = self.cfg.sample_template.format(transcript=scrub("\n".join(lines)))
+        if is_first:
+            template = f"{instruction}{delimiter}{template}"
+        return template

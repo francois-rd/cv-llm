@@ -1,14 +1,22 @@
 #!/bin/bash
 
-LLM="$1"
-shift
-if [ -z "$LLM" ]
+while getopts ":m:" opt; do
+  case ${opt} in
+    m) llm="${OPTARG}" ;;
+    :)
+      echo "Option -${OPTARG} requires an argument."
+      exit 1
+      ;;
+    ?) ;;  # Ignore other flags. They get based to sub-script.
+  esac
+done
+
+if [ -z "$llm" ]
 then
-  echo "Missing LLM nickname"
+  echo "Missing LLM nickname. Use the '-m' flag."
+  echo "If the flag was given, make sure it appears before any non-flag arguments."
   exit 1
 fi
-launch extract \
-  llm="$LLM" \
-  implementation=HF_TRANSFORMERS \
-  --transformers-path transformers_cfgs/"$LLM"/transformers.yaml \
-  "$@"
+
+"$(realpath "$(dirname "${BASH_SOURCE[0]}")")"/extract.bash -i HF_TRANSFORMERS "$@" \
+  -- --transformers-path transformers_cfgs/"$llm"/transformers.yaml

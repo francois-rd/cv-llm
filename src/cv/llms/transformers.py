@@ -1,13 +1,8 @@
 from dataclasses import dataclass, field
-from typing import Any, Dict, Optional
-
-from langchain.prompts.chat import (
-    HumanMessagePromptTemplate,
-    SystemMessagePromptTemplate,
-)
+from typing import Any, Optional, Union
 
 from .base import LLM, LLMOutput, Nickname
-from ..prompting import ClusterPrompt
+from ..prompting import ClusterPrompt, Message, MessageType
 
 
 @dataclass
@@ -21,24 +16,42 @@ class TransformersConfig:
     # Whether to use the transformers.Pipeline chat templating functionality.
     use_chat: bool = False
 
+    # Conversion between each MessageType and the specific role name for this LLM.
+    message_type_to_role_map: dict[MessageType, str] = field(
+        default_factory=lambda: {
+            MessageType.SYSTEM: MessageType.SYSTEM.value.lower(),
+            MessageType.USER: MessageType.USER.value.lower(),
+            MessageType.ASSISTANT: MessageType.ASSISTANT.value.lower(),
+        }
+    )
+
+    # Suffix for each MessageType's template when joining them all into one string.
+    message_type_suffix: dict[MessageType, str] = field(
+        default_factory=lambda: {
+            MessageType.SYSTEM: "\n\n",
+            MessageType.USER: "\n",
+            MessageType.ASSISTANT: "\n\n",
+        }
+    )
+
     # Model quantization options for bitsandbytes.
     quantization: Optional[str] = None
 
     # See transformers.AutoModelForCausalLM.from_pretrained for details.
     # NOTE: Skip 'quantization_config', which is handled specially.
-    model_params: Dict[str, Any] = field(
+    model_params: dict[str, Any] = field(
         default_factory=lambda: {"trust_remote_code": True},
     )
 
     # See transformers.Pipeline for details.
     # NOTE: Skip 'task', 'model', and 'torch_dtype', which are handled specially.
-    pipeline_params: Dict[str, Any] = field(default_factory=dict)
+    pipeline_params: dict[str, Any] = field(default_factory=dict)
 
     # See transformers.GenerationConfig for details.
-    generation_params: Dict[str, Any] = field(
+    generation_params: dict[str, Any] = field(
         default_factory=lambda: {
             "return_full_text": False,
-            "max_new_tokens": 5,
+            "max_new_tokens": 50,
             "num_return_sequences": 1,
         },
     )
@@ -50,7 +63,7 @@ class TransformersLLM(LLM):
     def __init__(
         self,
         nickname: Nickname,
-        transformers_cfg: TransformersConfig,
+        llm_cfg: TransformersConfig,
         *args,
         **kwargs,
     ):
@@ -65,9 +78,9 @@ class TransformersLLM(LLM):
         )
 
         # Basic initialization.
-        set_seed(transformers_cfg.seed)
+        set_seed(llm_cfg.seed)
         super().__init__(nickname, *args, **kwargs)
-        self.cfg = transformers_cfg
+        self.cfg = llm_cfg
 
         # Quantization.
         model_params = {**self.cfg.model_params}  # Convert OmegaConf -> dict
@@ -93,26 +106,22 @@ class TransformersLLM(LLM):
         )
 
     def invoke(self, prompt: ClusterPrompt, *args, **kwargs) -> LLMOutput:
-        # Convert the ChatPromptTemplate into a usable message structure.
-        messages = []
-        for message in prompt.template.messages:
-            if isinstance(message, SystemMessagePromptTemplate):
-                role = "system"
-            elif isinstance(message, HumanMessagePromptTemplate):
-                role = "user"
-            else:
-                raise ValueError(f"Unsupported role template: {type(message)}")
-            messages.append({"role": role, "content": message.prompt.template})
-        text = "\n\n".join(message["content"] for message in messages)
+        if prompt.messages is None:
+            return LLMOutput(None, "Missing prompt messages.")
+        prompt = self._make_prompt(prompt.messages)
+        output = self.llm(prompt, **self.cfg.generation_params)
+        generated_text = output[0]["generated_text"]
+        return LLMOutput(generated_text, error_message=None)
 
-        # Feed that message structure in the right format to the LLM.
+    def _make_prompt(self, messages: list[Message]) -> Union[str, list[dict[str, str]]]:
+        roles, suffix = self.cfg.message_type_to_role_map, self.cfg.message_type_suffix
+        new_messages = [{"role": roles[m[0]], "content": m[1]} for m in messages]
+        text = "".join([f"{m[1]}{suffix[m[0]]}" for m in messages]).strip()
         if self.cfg.use_chat:
             if self.cfg.use_system_prompt:
-                prompt = messages
+                prompt = new_messages
             else:
                 prompt = [{"role": "user", "content": text}]
         else:
             prompt = text
-        output = self.llm(prompt, **self.cfg.generation_params)
-        generated_text = output[0]["generated_text"]
-        return LLMOutput(generated_text, error_message=None)
+        return prompt

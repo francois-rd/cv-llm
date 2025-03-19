@@ -4,18 +4,7 @@ from .cluster import (
     ClusterName,
     ClustersConfig,
     Lines,
-    ParserData,
     QuestionId,
+    Prompt,
 )
-from .parser import (
-    DefaultScoreParser,
-    DefaultStringParser,
-    EnumParser,
-    FloatMatchParser,
-    JSONParser,
-    OutputParser,
-    PatternMatchParser,
-    ScoreOutputParser,
-    StringOutputParser,
-)
-from .utils import enum_from_str, scrub
+from .sampler import FewShotSampler, Label, LabelData, SampleData

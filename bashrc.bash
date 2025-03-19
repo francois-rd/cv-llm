@@ -21,10 +21,14 @@ export -f launch
 
 # Basic terminal auto-complete.
 complete -W "
+analyze.histogram
 consolidate
 docx.to.json
 extract
+mini.validation
+parse.labels
 segment
+test.comp
 test.launch
 " launch
 

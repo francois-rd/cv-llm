@@ -20,6 +20,9 @@ class PathConfig:
     # Resources (databases and datasets).
     resources_dir: str = "${root_dir}/resources"
 
+    # Master file for the relational database.
+    master_file: str = "${resources_dir}/master_file.csv"
+
     # Folder containing the transcript data.
     transcript_dir: str = "${resources_dir}/transcripts"
 
@@ -32,21 +35,37 @@ class PathConfig:
     # Folder containing the clustered transcript data.
     clustered_transcript_dir: str = "${transcript_dir}/clustered"
 
+    # Folder containing a manually-labeled subset of transcripts.
+    labeled_transcript_dir: str = "${transcript_dir}/labeled"
+
     # Results (from LLMs and evaluation).
     results_dir: str = "${root_dir}/results"
 
-    # Top-level folder for storing the raw LLM output. Each sub-folder is the
-    # Nickname of a particular LLM.
-    raw_scores_dir: str = "${results_dir}/raw_scores"
+    # Top-level folder for storing the parsed LLM output. Each sub-folder is the name
+    # of a runtime. Within those, each folder is the Nickname of a particular LLM.
+    extraction_dir: str = "${results_dir}/extraction"
+
+    # Folder containing the validation results.
+    validation_dir: str = "${results_dir}/validation"
+
+    # Folder containing the parsed ground truth label data.
+    parsed_labels_dir: str = "${validation_dir}/parsed_labels"
+
+    # Top-level folder for storing the aggregate validation scores. Each sub-folder is
+    # the name of a runtime. Within those, each folder is the Nickname of an LLM.
+    aggregate_scores_dir: str = "${validation_dir}/aggregate_scores/"
+
+    # Folder containing the consolidation output for latest run.
+    consolidate_dir: str = "${results_dir}/consolidate"
+
+    # Folder containing the analysis results for the latest run.
+    analysis_dir: str = "${results_dir}/analysis"
 
     # The nickname or ID of the current run. Update this at runtime on the command line.
     run_id: str = "<missing-run-id>"
 
     # The current runtime folder in which to store LLM output data.
-    run_dir: str = "${raw_scores_dir}/${run_id}"
-
-    # File containing the consolidation output for the current/latest run.
-    consolidate_file: str = "${results_dir}/consolidate/${run_id}.csv"
+    run_dir: str = "${extraction_dir}/${run_id}"
 
 
 T = TypeVar("T")
@@ -65,9 +84,22 @@ class Walk:
     # The full path to the file.
     path: str
 
-    def map(self, new_root: str, do_ensure_path: bool = False) -> str:
-        """Convenience method for remapping the 'base' to a new root."""
-        new_path = str(os.path.join(new_root, self.base))
+    def no_ext(self, full_path: bool = False) -> str:
+        """Convenience method for removing the file extension from 'base' or 'path'."""
+        return os.path.splitext(self.path if full_path else self.base)[0]
+
+    def map(
+        self,
+        new_root: str,
+        do_ensure_path: bool = False,
+        ext: Optional[str] = None,
+    ) -> str:
+        """
+        Convenience method for remapping the 'base' to a new root and possibly
+        changing the file extension.
+        """
+        base = self.base if ext is None else self.no_ext() + ext
+        new_path = str(os.path.join(new_root, base))
         return ensure_path(new_path) if do_ensure_path else new_path
 
 
@@ -162,7 +194,7 @@ def dumps_dataclasses(
     kwargs are passed to json.dump(). dict_factory is passed to dataclasses.asdict().
     """
 
-    return json.dumps([asdict(o, dict_factory=dict_factory) for o in objs], **kwargs)
+    return json.dumps(to_dicts(*objs, dict_factory=dict_factory), **kwargs)
 
 
 def to_dicts(
@@ -288,7 +320,7 @@ def walk_lines(root: str) -> Iterable[tuple[list[str], Walk]]:
 
 def walk_json(root: str, **kwargs) -> Iterable[tuple[Any, Walk]]:
     """
-    Yields a JSON object each file in the root directory.
+    Yields a JSON object from each file in the root directory.
     kwargs are passed to json.load().
     """
     yield from walk_fn(root, load_json, **kwargs)
@@ -354,3 +386,19 @@ def walk_docx(root: str) -> Iterable[tuple[list[str], Walk]]:
     Skips empty lines.
     """
     yield from walk_fn(root, load_docx)
+
+
+def scrub(text: str) -> str:
+    """Removes '{' and '}' from the text, which cause string format errors."""
+    return text.replace("{", "").replace("}", "")
+
+
+EnumSubType = TypeVar("EnumSubType", bound=Enum)
+
+
+def enum_from_str(enum_type: Type[EnumSubType], s: str) -> EnumSubType:
+    """Returns the enum field in E whose name corresponds to s."""
+    try:
+        return enum_type[s.upper()]
+    except KeyError:
+        raise ValueError(f"Unsupported {enum_type}: {s}")

@@ -1,43 +1,43 @@
 from typing import Iterable, Optional
-from dataclasses import dataclass
 import re
 
-from omegaconf import OmegaConf
-
-from .base import TagsConfig, Transcript
-from ..core import Cluster, ClusterName, ClustersConfig, QuestionId
-
-
-@dataclass
-class Tag:
-    question_ids: Optional[list[QuestionId]]
-    match_string: str
-
-
-Span = tuple[Optional[int], Optional[int]]
+from .base import Span, Tag, TagsConfig, TagType, Transcript
+from ..core import Cluster, ClustersConfig, Lines, QuestionId
 
 
 class Tagger:
     def __init__(self, tags_cfg: TagsConfig):
         self.tags_cfg = tags_cfg
         self.pattern = re.compile(tags_cfg.primary_regex, flags=re.IGNORECASE)
-        self.digits = re.compile(tags_cfg.question_id_regex, flags=re.IGNORECASE)
+        self.q_id = re.compile(tags_cfg.question_id_regex, flags=re.IGNORECASE)
 
-    def __call__(self, lines: list[str], *args, **kwargs) -> list[Optional[Tag]]:
+    def __call__(self, lines: Lines, *args, **kwargs) -> list[Optional[Tag]]:
         return [self._do_tag(line) for line in lines]
 
-    def _do_tag(self, line) -> Optional[Tag]:
+    def _do_tag(self, line: str) -> Optional[Tag]:
+        if self._is_header_tag(line):
+            return Tag([], TagType.HEADER, line)
         match = self.pattern.search(line)
         if match is None:
             return None
         question_tag = match.group(self.tags_cfg.question_group)
-        try:
-            return Tag([int(question_tag)], match.group())
-        except ValueError:
-            res = self.digits.findall(question_tag)
-            if len(set(res)) == 1:  # All elements equal and there is at least one.
-                return Tag([int(res[0])], match.group())
-            return Tag([int(r) for r in res], match.group())
+        q_ids = set(self.q_id.findall(question_tag))
+        q_ids = [q_id.replace(" ", "") for q_id in q_ids]
+        tag_type = TagType.ANSWER if self._is_answer_tag(match) else TagType.QUESTION
+        return Tag(q_ids, tag_type, match.group())
+
+    def _is_header_tag(self, line: str) -> bool:
+        for header in self.tags_cfg.headers:
+            if line.lower().strip() == header.lower().strip():
+                return True
+        return False
+
+    def _is_answer_tag(self, match: re.Match) -> bool:
+        should_check_answer_group = self.tags_cfg.answer_to_group > 0
+        if should_check_answer_group:
+            answer_tag = match.group(self.tags_cfg.answer_to_group)
+            return answer_tag is not None
+        return False
 
 
 class ConvertTagsToTranscript:
@@ -45,63 +45,57 @@ class ConvertTagsToTranscript:
     Several big assumptions:
     1. Lines within a single question have a consecutive span, as opposed to being
        fragmented across the transcript.
+        -> We know this is not quite true given the presence of "Answer to" tags,
+           but it is a rare edge case that is far too complex to handle at this time.
     2. Clusters can have non-consecutive questions (e.g., Q1, Q6, Q7), but the
        resulting 'cluster.lines' will contain lines in ascending order regardless of
        the listed order of 'cluster.questions'.
     3. If a tag identifies more than one question for a single line of transcript,
        then that line is repeated across each cluster to which the question belongs.
        In other words, mix-tag lines don't have to belong to the same cluster.
-       Instead, their content is replicated across clusters.
+       Instead, their content is replicated across clusters. For example, a tag
+       like "7 + 7a" on a single line in the transcript means that both "7" and "7a"
+       will be included in any cluster that calls for either one in isolation.
     """
 
     def __init__(self, clusters_cfg: ClustersConfig):
         self.clusters_cfg = clusters_cfg
-        self.q_id_to_cluster_map = {}
-        for name, data in clusters_cfg.clusters.items():
-            for question_id in data.questions:
-                self.q_id_to_cluster_map[question_id] = name
+        all_data = clusters_cfg.clusters.values()
+        self.unique_q_ids = {q_id for data in all_data for q_id in data.question_ids}
 
     def __call__(
         self,
-        lines: list[str],
+        lines: Lines,
         tags: list[Optional[Tag]],
         *args,
         **kwargs,
     ) -> Transcript:
         transcript = {}
+        all_spans = self._find_all_spans(tags)
+        lines = [self._remove_tag(line, tag) for line, tag in zip(lines, tags)]
         for name, data in self.clusters_cfg.clusters.items():
-            transcript[name] = Cluster(OmegaConf.to_object(data))
-        lines = [self._remove_tag(line, i, tags) for i, line in enumerate(lines)]
-        self._fill_transcript(transcript, lines, tags)
+            new_lines = self._find_cluster_lines(data.question_ids, lines, all_spans)
+            transcript[name] = Cluster(lines=new_lines) if new_lines else None
         return Transcript(transcript)
 
     @staticmethod
-    def _remove_tag(line: str, index, tags: list[Optional[Tag]]) -> str:
-        tag = tags[index]
-        if tag is None:
-            return line
-        else:
-            return line.replace(tag.match_string, "").strip()
+    def _remove_tag(line: str, tag: Optional[Tag]) -> str:
+        """Removes the tag sub-string from the line (if any)."""
+        return line if tag is None else line.replace(tag.match_string, "").strip()
 
-    def _fill_transcript(
-        self,
-        transcript: dict[ClusterName, Cluster],
-        lines: list[str],
-        tags: list[Optional[Tag]],
-    ):
-        all_spans = self._find_all_spans(tags)
-        for cluster in transcript.values():
-            self._fill_cluster(cluster, lines, all_spans)
-
-    def _find_all_spans(self, tags: list[Optional[Tag]]):
-        return {q_id: self._find_span(q_id, tags) for q_id in self.q_id_to_cluster_map}
+    def _find_all_spans(self, tags: list[Optional[Tag]]) -> dict[QuestionId, Span]:
+        """Returns a mapping between each QuestionID and its Span based on the tags."""
+        return {q_id: self._find_span(q_id, tags) for q_id in self.unique_q_ids}
 
     @staticmethod
     def _find_span(q_id: QuestionId, tags: list[Optional[Tag]]) -> Span:
+        """Finds the span of the given QuestionID from amongst the tags."""
         start, end = None, None
         for i, tag in enumerate(tags):
-            if tag is None:  # If we have a blank tag...
+            # NOTE: Current implementation treats answer tags as blanks.
+            if tag is None or tag.tag_type == TagType.ANSWER:  # If we have a blank...
                 # ... increment the end tag only if we've found the start already.
+                # If we haven't found the start, we just skip over.
                 end = None if start is None else i
                 continue  # Importantly, go to next loop.
 
@@ -118,23 +112,26 @@ class ConvertTagsToTranscript:
                 end = i
         return start, end
 
-    def _fill_cluster(
+    def _find_cluster_lines(
         self,
-        cluster: Cluster,
-        lines: list[str],
+        question_ids: list[QuestionId],
+        lines: Lines,
         all_spans: dict[QuestionId, Span],
-    ):
-        spans = self._find_cluster_spans(cluster, all_spans)
+    ) -> Lines:
+        """Returns the cluster's lines based on aggregating its question spans."""
+        cluster_lines, spans = [], self._find_cluster_spans(question_ids, all_spans)
         for span in self._merge_and_sort_overlapping_spans(spans):
-            cluster.lines.extend(lines[span[0] : span[1] + 1])
+            cluster_lines.extend(lines[span[0] : span[1] + 1])
+        return cluster_lines
 
     @staticmethod
     def _find_cluster_spans(
-        cluster: Cluster,
+        question_ids: list[QuestionId],
         all_spans: dict[QuestionId, Span],
     ) -> list[Span]:
+        """Returns all valid spans for the given question IDs from all the spans."""
         spans = []
-        for q_id in cluster.data.questions:
+        for q_id in question_ids:
             start, end = all_spans[q_id]
             if start is not None and end is not None:
                 spans.append((start, end))
@@ -156,7 +153,7 @@ class ConvertTagsToTranscript:
             # In Py>=3.7, do NOT raise StopIteration.
             return
 
-        # NOTE: The below works *only* because the spans are sorted.
+        # NOTE: The below works *only* because the spans are sorted above.
         for start, end in spans:
             # If the new start is larger than the current end, there is a gap.
             if start > merged_end:

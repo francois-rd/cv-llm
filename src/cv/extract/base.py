@@ -1,11 +1,12 @@
 from dataclasses import dataclass
-from typing import Any, Optional, Type
+from typing import Any, Optional
 
 from langchain_core.runnables import Runnable, chain
 from langchain_core.runnables.base import RunnableEach
 
-from ..core import ClusterName, ClustersConfig, OutputParser
+from ..core import ClusterName, ClustersConfig, FewShotSampler
 from ..llms import LLMsConfig, load_llm
+from ..parsing import ParserManager
 from ..prompting import ClusterPrompt, PromptMaker
 from ..segmentation import Transcript
 
@@ -17,40 +18,69 @@ class ClusterOutput:
     error_message: Optional[str]
 
 
+@dataclass
+class TranscriptWrapper:
+    """
+    Surely, there is a better way to pass args and kwargs to each Runnable in a
+    Chain, but I cannot figure it out from the documentation.
+    """
+
+    transcript: Transcript
+    args: tuple[Any, ...]
+    kwargs: dict[str, Any]
+
+
+@dataclass
+class PromptWrapper:
+    """
+    Surely, there is a better way to pass args and kwargs to each Runnable in a
+    Chain, but I cannot figure it out from the documentation.
+    """
+
+    prompt: ClusterPrompt
+    args: tuple[Any, ...]
+    kwargs: dict[str, Any]
+
+
 class Extract:
     def __init__(
         self,
         clusters: ClustersConfig,
         llms: LLMsConfig,
-        parser_type: Type[OutputParser],
+        sampler: FewShotSampler,
         *args,
         **kwargs,
     ):
-        self.make_prompts = PromptMaker(clusters, parser_type)
+        self.clusters_cfg = clusters
+        self.make_prompts = PromptMaker(clusters, sampler)
+        self.parsers = ParserManager(clusters)
         self.llm = load_llm(llms, *args, **kwargs)
         self.chain = self._generate_chain()
 
     def __call__(self, transcript: Transcript, *args, **kwargs) -> list[ClusterOutput]:
-        return self.chain.invoke(transcript)
+        transcript.restore_cluster_data(self.clusters_cfg)
+        return self.chain.invoke(TranscriptWrapper(transcript, args, kwargs))
 
     def _generate_preprocessor(self) -> Runnable:
         @chain
-        def runnable(transcript: Transcript):
-            return self.make_prompts(transcript)
+        def runnable(w: TranscriptWrapper) -> list[PromptWrapper]:
+            prompts = self.make_prompts(w.transcript, *w.args, **w.kwargs)
+            return [PromptWrapper(prompt, w.args, w.kwargs) for prompt in prompts]
 
         return runnable
 
     def _generate_llm(self) -> Runnable:
         @chain
-        def runnable(p: ClusterPrompt):
-            if p.template is None:
+        def runnable(w: PromptWrapper) -> ClusterOutput:
+            if w.prompt.messages is None:
                 # If there is no cluster data for whatever reason (parsing error or
                 # legitimately missing data from the transcript), skip the LLM.
-                return ClusterOutput(p.name, None, "No cluster data.")
-            output = self.llm.invoke(p)
+                return ClusterOutput(w.prompt.name, None, "No cluster data.")
+            output = self.llm.invoke(w.prompt, *w.args, **w.kwargs)
+            parser = self.parsers.get(w.prompt.name)
             return ClusterOutput(
-                cluster_name=p.name,
-                llm_output=p.parser(output.generated_text),
+                cluster_name=w.prompt.name,
+                llm_output=parser(output.generated_text, *w.args, **w.kwargs),
                 error_message=output.error_message,
             )
 

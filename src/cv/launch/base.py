@@ -6,8 +6,9 @@ import coma
 from ..consolidate import ConsolidateConfig
 from ..core import ClustersConfig
 from ..io import PathConfig, logging as log
-from ..llms import LLMsConfig, TransformersConfig
+from ..llms import DummyConfig, LLMsConfig, TransformersConfig
 from ..segmentation import TagsConfig
+from ..validation import ValidationConfig
 
 
 # Links a unique config ID with its data type.
@@ -19,10 +20,12 @@ class Configs:
 
     consolidate = ConfigData("consolidate", ConsolidateConfig)
     clusters = ConfigData("clusters", ClustersConfig)
+    dummy = ConfigData("dummy", DummyConfig)
     llms = ConfigData("llms", LLMsConfig)
     paths = ConfigData("paths", PathConfig)
     tags = ConfigData("tags", TagsConfig)
     transformers = ConfigData("transformers", TransformersConfig)
+    validation = ConfigData("validation", ValidationConfig)
 
     @staticmethod
     def add(*cfgs_data: ConfigData):
