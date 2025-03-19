@@ -34,12 +34,12 @@ class Histogram:
         header = f"Cluster ({self.cluster_name}) + LLM ({self.llm_nickname})"
         header = self._report_header(header, indent=indent, indents=0)
         blacklist = [f.name for f in fields(Histogram)]
-        span = self._length_span([
-            f.name for f in fields(self)
-            if f.type is int and f.name not in blacklist
-        ])
+        span = self._length_span(
+            [f.name for f in fields(self) if f.type is int and f.name not in blacklist],
+        )
         field_reports = [
-            self._report_field(f, span, indent=indent) for f in fields(self)
+            self._report_field(f, span, indent=indent)
+            for f in fields(self)
             if f.name not in blacklist
         ]
         return header + "".join(field_reports)

@@ -23,7 +23,9 @@ Span = tuple[Optional[int], Optional[int]]
 
 @dataclass
 class TagsConfig:
-    primary_regex: str = r"^(Answer\s*(to))?\s*Question\s*(.+?)\s*(Ite(ra|ar)tion.+?)?\.\."
+    primary_regex: str = (
+        r"^(Answer\s*(to))?\s*Question\s*(.+?)\s*(Ite(ra|ar)tion.+?)?\.\."
+    )
     question_group: int = 3
     answer_to_group: int = 1
     question_id_regex: str = r"[0-9]+\s*\w?\s*[0-9]*"

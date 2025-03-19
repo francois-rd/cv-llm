@@ -58,7 +58,7 @@ class StringComparison(Comparison):
         return StringComparison(
             state=ComparisonSate.VALID,
             exact=llm == label,
-            agreement=StringComparison.compute_agreement(llm, label)
+            agreement=StringComparison.compute_agreement(llm, label),
         )
 
     @staticmethod
@@ -110,14 +110,11 @@ class TagComparison(Comparison):
     @staticmethod
     def from_tags(llm: Optional[Tag], label: Tag) -> "TagComparison":
         has_val = label.value is not None
+        from_invalid_state = TagComparison.from_invalid_state
         if llm is None:
-            return TagComparison.from_invalid_state(
-                ComparisonSate.NO_LLM, has_value=has_val,
-            )
+            return from_invalid_state(ComparisonSate.NO_LLM, has_value=has_val)
         if label is None:
-            return TagComparison.from_invalid_state(
-                ComparisonSate.NO_LABEL, has_value=has_val,
-            )
+            return from_invalid_state(ComparisonSate.NO_LABEL, has_value=has_val)
         match = EnumComparison.from_strings(llm.tag, label.tag).match
         if llm.value is None or label.value is None:
             return TagComparison(
@@ -411,9 +408,8 @@ class MultiTagComparator(Comparator):
             state = ComparisonSate.NO_LLM
             if len(llm_output) > 0:
                 state = ComparisonSate.INVALID_OTHER
-            best_comp = TagComparison.from_invalid_state(
-                state, has_value=label.value is not None,
-            )
+            has_value = label.value is not None
+            best_comp = TagComparison.from_invalid_state(state, has_value=has_value)
             return best_comp, None
         return best_comp, best_llm
 
@@ -512,13 +508,15 @@ def test_list_of_strings():
 
     partial_result = comp(
         ["heart failure", "heart", "short of breath"],
-        ["shortness of breath", "heart failure", "palpitations"]
+        ["shortness of breath", "heart failure", "palpitations"],
     )
     agreement1 = StringComparison.compute_agreement(
-        "short of breath", "shortness of breath",
+        "short of breath",
+        "shortness of breath",
     )
     agreement2 = StringComparison.compute_agreement(
-        "heart", "palpitations",
+        "heart",
+        "palpitations",
     )
     partial_expected = ListOfStringsComparison(
         state=ComparisonSate.VALID,
@@ -563,7 +561,8 @@ def test_multi_tag():
 
     one_match_one_val_llm = [asdict(Tag("something", "value"))]
     one_match_one_val_label = [
-        asdict(Tag("something", "value")), asdict(Tag("else", None)),
+        asdict(Tag("something", "value")),
+        asdict(Tag("else", None)),
     ]
     one_match_one_val_result = comp(one_match_one_val_llm, one_match_one_val_label)
     one_match_one_val_expected = MultiTagComparison(
@@ -576,7 +575,8 @@ def test_multi_tag():
 
     one_match_two_val_llm = [asdict(Tag("something", "value"))]
     one_match_two_val_label = [
-        asdict(Tag("something", "value")), asdict(Tag("else", "other")),
+        asdict(Tag("something", "value")),
+        asdict(Tag("else", "other")),
     ]
     one_match_two_val_result = comp(one_match_two_val_llm, one_match_two_val_label)
     one_match_two_val_expected = MultiTagComparison(
@@ -588,7 +588,8 @@ def test_multi_tag():
     assert one_match_two_val_result == one_match_two_val_expected
 
     full_recall_llm = [
-        asdict(Tag("something", "value")), asdict(Tag("else", "other")),
+        asdict(Tag("something", "value")),
+        asdict(Tag("else", "other")),
     ]
     full_recall_label = [asdict(Tag("something", "value"))]
     full_recall_result = comp(full_recall_llm, full_recall_label)
@@ -601,10 +602,12 @@ def test_multi_tag():
     assert full_recall_result == full_recall_expected
 
     partial_value_llm = [
-        asdict(Tag("something", "val")), asdict(Tag("else", "other")),
+        asdict(Tag("something", "val")),
+        asdict(Tag("else", "other")),
     ]
     partial_value_label = [
-        asdict(Tag("something", "value")), asdict(Tag("else", "other")),
+        asdict(Tag("something", "value")),
+        asdict(Tag("else", "other")),
     ]
     partial_value_result = comp(partial_value_llm, partial_value_label)
     agreement = StringComparison.compute_agreement("val", "value")

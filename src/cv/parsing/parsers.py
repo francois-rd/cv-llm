@@ -191,21 +191,16 @@ class IntervalOrDateParser(OutputParser):
         reject: Optional[str] = None,
     ) -> IntervalOrDateOrReject:
         if interval is not None and date is None and reject is None:
-            return IntervalOrDateOrReject(
-                interval=interval, date=None, reject=None,
-            )
+            return IntervalOrDateOrReject(interval=interval, date=None, reject=None)
         if date is not None and interval is None and reject is None:
-            return IntervalOrDateOrReject(
-                interval=None, date=date.strftime("%Y-%m-%d"), reject=None,
-            )
+            date = date.strftime("%Y-%m-%d")
+            return IntervalOrDateOrReject(interval=None, date=date, reject=None)
         if reject is not None and interval is None and date is None:
-            return IntervalOrDateOrReject(
-                interval=None, date=None, reject=reject
-            )
+            return IntervalOrDateOrReject(interval=None, date=None, reject=reject)
         raise ValueError(
-                f"{self.__class__.__name__}: Internal error: "
-                f"Lacking mutual exclusivity in output construction."
-            )
+            f"{self.__class__.__name__}: Internal error: "
+            f"Lacking mutual exclusivity in output construction."
+        )
 
     def __call__(
         self,
@@ -452,7 +447,7 @@ class MultiTagParser(OutputParser):
                 f"must adhere to the following schema:\n"
                 "{\n"
                 '   "separator": <string>,  # This field is optional. '
-                'Newline is used by default.\n'
+                "Newline is used by default.\n"
                 '   "options": [\n'
                 "       {\n"
                 '           "tag": <string>,\n'
@@ -493,7 +488,7 @@ class ScoreOrRejectParser(OutputParser):
         max_score: Optional[float],
         force_int: bool = False,
         int_tol: float = 0.0001,
-        reject: Optional[str] = None
+        reject: Optional[str] = None,
     ):
         """
         Parses the LLM output into a score or (optionally) a rejection.

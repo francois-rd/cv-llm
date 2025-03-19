@@ -115,19 +115,20 @@ class ExtractCommand:
             dummy_cheat_sampler=sampler,
         )
         self.pathing = ExtractionDirHandler(paths)
+        self.make_output_file = self.pathing.get_extraction_output_path
         self.get_reference = ReferenceDate(paths).get
 
     def run(self):
         root = self.paths.clustered_transcript_dir
         for transcript, walk in walk_dataclass_json(root, t=Transcript):
-            output_file = self.pathing.get_extraction_output_path(
-                self.llms.llm, walk, ext=".jsonl",
-            )
+            output_file = self.make_output_file(self.llms.llm, walk, ext=".jsonl")
             if self.rerun_protocol.skip(output_file):
                 continue
             a_id = self.pathing.get_assign_id(walk)
             extractions = self.do_extract(
-                transcript, reference_date=self.get_reference(a_id), assign_id=a_id,
+                transcript,
+                reference_date=self.get_reference(a_id),
+                assign_id=a_id,
             )
             save_dataclass_jsonl(output_file, *extractions)
 
@@ -198,9 +199,10 @@ def analyze_histogram(
         output_file = walk.map(new_root=paths.analysis_dir, ext=".txt")
         if rerun_protocol.skip(output_file):
             continue
-        histograms = make_histograms(walk.path)
         save_lines(
-            output_file, *histograms, to_string_fn=lambda h: h.make_report() + "\n\n",
+            output_file,
+            *make_histograms(walk.path),
+            to_string_fn=lambda h: h.make_report() + "\n\n",
         )
 
 
@@ -224,10 +226,12 @@ def register():
         """
         # Preload just the LLMsConfig.
         llm_cfg = coma.hooks.config_hook.single_load_and_write_factory(
-            Cfgs.llms.id_, write_on_fnf=False,
+            Cfgs.llms.id_,
+            write_on_fnf=False,
         )(known_args=known_args, configs=configs)
         llm_cfg = coma.hooks.post_config_hook.single_cli_override_factory(
-            Cfgs.llms.id_, coma.config.cli.override_factory(sep="::"),
+            Cfgs.llms.id_,
+            coma.config.cli.override_factory(sep="::"),
         )(unknown_args=unknown_args, configs=llm_cfg)
         cfg: LLMsConfig = llm_cfg[Cfgs.llms.id_]
 

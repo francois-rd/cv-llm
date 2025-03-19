@@ -33,10 +33,8 @@ class FewShotSampler:
         label_data: LabelData,
     ) -> dict[ClusterName, Optional[SampleData]]:
         result = {}
-        for name, cluster in transcript.clusters.items():
-            result[name] = self._do_make_sample_data(
-                assign_id, name, cluster, label_data,
-            )
+        for name, c in transcript.clusters.items():
+            result[name] = self._do_make_sample_data(assign_id, name, c, label_data)
         return result
 
     @staticmethod
