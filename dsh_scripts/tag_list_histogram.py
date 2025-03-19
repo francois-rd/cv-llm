@@ -7,7 +7,7 @@ from docx import Document
 
 
 class Tagger:
-    def __init__(self, regex: str = r"^(Answered)?\s*Question\s*(.+?)\s*(Ite(ra|ar)tion.+?)?\.\."):
+    def __init__(self, regex: str = r"^(Answer\s*(to))?\s*Question\s*(.+?)\s*(Ite(ra|ar)tion.+?)?\.\."):
         self.pattern = re.compile(regex, flags=re.IGNORECASE)
         self.digits = re.compile(r"([0-9]+)\s*\w?\s*[0-9]*")
         self.histogram = {}
