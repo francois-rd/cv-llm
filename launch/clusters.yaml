@@ -73,11 +73,14 @@ included_clusters:
   - Q_29
   - Q_30
   - Q_31
-  #- Q_32_32a
+  - Q_32_feel
+  - Q_32_ready
+  - Q_32_tension
   - Q_33
+  - Q_34
   - Q_35
   - Q_35a
-  #- Q_36
+  - Q_36
 clusters:
   Q_01:
     prompt: >-
@@ -2304,40 +2307,84 @@ clusters:
 
       Options:
 
-      1. "GRADE SCHOOL"
+      1. "NONE"
       
-      Answer with "GRADE SCHOOL" if the patient's highest level of education is
-      grade school (also known as primary or elementary school).
-      
-      
-      2. "HIGH SCHOOL"
-      
-      Answer with "HIGH SCHOOL" if the patient's highest level of education is
-      high school (also known as secondary school).
+      Answer with "NONE" if the patient did not attend any education whatsoever.
       
       
-      3. "TRADE SCHOOL"
+      2. "SOME GRADE SCHOOL"
+      
+      Answer with "SOME GRADE SCHOOL" if the patient did some grade school (also
+      known as primary or elementary school), but did *not* finish grade school.
+      
+      
+      3. "COMPLETED GRADE SCHOOL"
+      
+      Answer with "COMPLETED GRADE SCHOOL" if the patient's highest level of completed
+      education is grade school (also known as primary or elementary school).
+      
+      
+      4. "SOME HIGH SCHOOL"
+      
+      Answer with "SOME HIGH SCHOOL" if the patient did some high school (also
+      secondary school), but did *not* finish high school.
+      
+      
+      5. "COMPLETED HIGH SCHOOL"
+      
+      Answer with "COMPLETED HIGH SCHOOL" if the patient's highest level of completed
+      education is high school (also known as secondary school).
+      
+      
+      6. "TRADE SCHOOL"
 
       Answer with "TRADE SCHOOL" if the patient's highest level of education is
       a trade school or vocation school. Examples include: "plumber" or "electrician".
       
       
-      4. "UNDERGRADUATE"
+      7. "CERTIFICATE"
       
-      Answer with "UNDERGRADUATE" if the patient's highest level of education is
+      Answer with "CERTIFICATE" if the patient completed some sort of Post-Secondary
+      Certificate or Diploma (or equivalent degree). Examples include: Journeyman
+      Certificates or Technical Education Diplomas. This also includes 2-year
+      Associates degree or equivalent.
+      
+      
+      8. "SOME COLLEGE OR UNIVERSITY"
+      
+      Answer with "SOME HIGH SCHOOL" if the patient did some amount of college or
+      university studies, but did *not* finish their degree.
+      
+      
+      9. "BACHELOR"
+      
+      Answer with "BACHELOR" if the patient's highest level of education is
       an undergraduate degree or equivalent. Examples include: "university",
-      "bachelor", or "MBA". A mention of a specific field without a qualifying
-      degree should be interpreted as "UNDERGRADUATE". Examples include: "psych",
-      "finance", or "biology".
+      "bachelor", or "college". A mention of a specific field without a qualifying
+      degree should be interpreted as "BACHELOR". Examples include: "psych",
+      "finance", or "biology". These categories can include both art degrees and
+      science degrees.
       
       
-      5. "GRADUATE"
+      10. "MASTERS"
       
-      Answer with "GRADUATE" if the patient's highest level of education is
-      graduate degree or equivalent. Examples include: "master's", "MSc", or "PhD".
+      Answer with "MASTERS" if the patient's highest level of education is a master's
+      degree or equivalent. Examples include: "master's", "MSc", "MA", or "MBA".
       
+      
+      11. "PROFESSIONAL"
+
+      Answer with "PROFESSIONAL" if the patient's highest level of education is a
+      professional degree or equivalent. Examples include: "MD", "JD", and "OD".
+      
+      
+      12. "DOCTORAL"
+
+      Answer with "DOCTORAL" if the patient's highest level of education is a
+      doctoral degree (PhD) or equivalent.
     
-      6. "UNKNOWN"
+    
+      13. "UNKNOWN"
       
       Answer with "UNKNOWN" if the patient expresses uncertainty about their
       highest level of education. This can include expressions such as "I 
@@ -2346,7 +2393,7 @@ clusters:
       infer their education level from that occupation.
 
       
-      7. "IRRELEVANT"
+      14. "IRRELEVANT"
       
       Answer with "IRRELEVANT" if the patient fails to answer the interviewer's 
       question because they are talking about something other than their highest
@@ -2362,11 +2409,18 @@ clusters:
     few_shot_assign_ids: [UHN0001, UHN00051, UHN00201, UHN00301, UHN00501]
     parser_data:
       enum_options:
-        - "GRADE SCHOOL"
-        - "HIGH SCHOOL"
+        - "NONE"
+        - "SOME GRADE SCHOOL"
+        - "COMPLETED GRADE SCHOOL"
+        - "SOME HIGH SCHOOL"
+        - "COMPLETED HIGH SCHOOL"
         - "TRADE SCHOOL"
-        - "UNDERGRADUATE"
-        - "GRADUATE"
+        - "CERTIFICATE"
+        - "SOME COLLEGE OR UNIVERSITY"
+        - "BACHELOR"
+        - "MASTERS"
+        - "PROFESSIONAL"
+        - "DOCTORAL"
         - "UNKNOWN"
         - "IRRELEVANT"
   Q_25a:
@@ -2418,54 +2472,101 @@ clusters:
       In the snippet below, the interviewer is asking each patient what their
       parents' highest level of education is. For each patient, your task is to
       extract one of the following options based on the most appropriate case.
+      If each of the patient's parents have a different education level, answer
+      based on the parent with the highest education level between the two.
 
 
       Options:
 
-      1. "GRADE SCHOOL"
-      
-      Answer with "GRADE SCHOOL" if the patient's parents' highest level of
-      education is grade school (also known as primary or elementary school).
-      
-      
-      2. "HIGH SCHOOL"
-      
-      Answer with "HIGH SCHOOL" if the patient's parents' highest level of
-      education is high school (also known as secondary school).
-      
-      
-      3. "TRADE SCHOOL"
+      1. "NONE"
 
-      Answer with "TRADE SCHOOL" if the patient's parents' highest level of
-      education is a trade school or vocation school. Examples include:
-      "plumber" or "electrician".
-      
-      
-      4. "UNDERGRADUATE"
-      
-      Answer with "UNDERGRADUATE" if the patient's parents' highest level of
-      education is an undergraduate degree or equivalent. Examples include:
-      "university", "bachelor", or "MBA". A mention of a specific field without
-      a qualifying degree should be interpreted as "UNDERGRADUATE". Examples
-      include: "psych", "finance", or "biology".
-      
-      
-      5. "GRADUATE"
-      
-      Answer with "GRADUATE" if the patient's parents' highest level of education is
-      graduate degree or equivalent. Examples include: "master's", "MSc", or "PhD".
-      
-    
-      6. "UNKNOWN"
-      
-      Answer with "UNKNOWN" if the patient expresses uncertainty about their
-      highest level of education. This can include expressions such as "I 
-      can't remember" or "I don't know". Also answer with "UNKNOWN" if the
-      patient mentions their occupation, but it is impossible to confidently
-      infer their education level from that occupation.
+      Answer with "NONE" if the patient's parents did not attend any education
+      whatsoever.
 
-      
-      7. "IRRELEVANT"
+
+      2. "SOME GRADE SCHOOL"
+
+      Answer with "SOME GRADE SCHOOL" if the patient's parents did some grade school
+      (also known as primary or elementary school), but did *not* finish grade school.
+
+
+      3. "COMPLETED GRADE SCHOOL"
+
+      Answer with "COMPLETED GRADE SCHOOL" if the patient's parents' highest level of
+      completed education is grade school (also known as primary or elementary school).
+
+
+      4. "SOME HIGH SCHOOL"
+
+      Answer with "SOME HIGH SCHOOL" if the patient's parents did some high school
+      (also secondary school), but did *not* finish high school.
+
+
+      5. "COMPLETED HIGH SCHOOL"
+
+      Answer with "COMPLETED HIGH SCHOOL" if the patient's parents' highest level of
+      completed education is high school (also known as secondary school).
+
+
+      6. "TRADE SCHOOL"
+
+      Answer with "TRADE SCHOOL" if the patient's parents' highest level of education is
+      a trade school or vocation school. Examples include: "plumber" or "electrician".
+
+
+      7. "CERTIFICATE"
+
+      Answer with "CERTIFICATE" if the patient's parents completed some sort of
+      Post-Secondary Certificate or Diploma (or equivalent degree). Examples include:
+      Journeyman Certificates or Technical Education Diplomas. This also includes
+      2-year Associates degree or equivalent.
+
+
+      8. "SOME COLLEGE OR UNIVERSITY"
+
+      Answer with "SOME HIGH SCHOOL" if the patient's parents did some amount of
+      college or university studies, but did *not* finish their degree.
+
+
+      9. "BACHELOR"
+
+      Answer with "BACHELOR" if the patient's parents' highest level of education is
+      an undergraduate degree or equivalent. Examples include: "university",
+      "bachelor", or "college". A mention of a specific field without a qualifying
+      degree should be interpreted as "BACHELOR". Examples include: "psych",
+      "finance", or "biology". These categories can include both art degrees and
+      science degrees.
+
+
+      10. "MASTERS"
+
+      Answer with "MASTERS" if the patient's parents' highest level of education 
+      is a master's degree or equivalent. Examples include: "master's", "MSc", 
+      "MA", or "MBA".
+
+
+      11. "PROFESSIONAL"
+
+      Answer with "PROFESSIONAL" if the patient's parents' highest level of education
+      is a professional degree or equivalent. Examples include: "MD", "JD", and "OD".
+
+
+      12. "DOCTORAL"
+
+      Answer with "DOCTORAL" if the patient's parents' highest level of education
+      is a doctoral degree (PhD) or equivalent.
+
+
+      13. "UNKNOWN"
+
+      Answer with "UNKNOWN" if the patient expresses uncertainty about their parents'
+      highest level of education. This can include expressions such as "I can't
+      remember" or "I don't know". Also answer with "UNKNOWN" if the patient mentions
+      their parents' occupations, but it is impossible to confidently infer their
+      education level from those occupations.
+
+
+      14. "IRRELEVANT"
       
       Answer with "IRRELEVANT" if the patient fails to answer the interviewer's 
       question because they are talking about something other than their parents'
@@ -2474,8 +2575,8 @@ clusters:
       
       Additional instructions:
       
-      If the patient's parents each have a different education level, answer with
-      the highest level mentioned.
+      Reminder: If the patient's parents each have a different education level,
+      answer with the highest level mentioned.
       
       Answer with the most appropriate of the options listed above.
       Do not output anything else.
@@ -2484,11 +2585,18 @@ clusters:
     few_shot_assign_ids: [UHN0001, UHN00201, UHN00251, UHN00301]
     parser_data:
       enum_options:
-        - "GRADE SCHOOL"
-        - "HIGH SCHOOL"
+        - "NONE"
+        - "SOME GRADE SCHOOL"
+        - "COMPLETED GRADE SCHOOL"
+        - "SOME HIGH SCHOOL"
+        - "COMPLETED HIGH SCHOOL"
         - "TRADE SCHOOL"
-        - "UNDERGRADUATE"
-        - "GRADUATE"
+        - "CERTIFICATE"
+        - "SOME COLLEGE OR UNIVERSITY"
+        - "BACHELOR"
+        - "MASTERS"
+        - "PROFESSIONAL"
+        - "DOCTORAL"
         - "UNKNOWN"
         - "IRRELEVANT"
   Q_26:
@@ -2781,6 +2889,172 @@ clusters:
     few_shot_assign_ids: [UHN00101, UHN00251, UHN00401]
     system_prompt_index: 2
     parser_data: {min_score: 0.0, max_score: 10.0, reject: IRRELEVANT}
+  Q_32_feel:
+    prompt: >-
+      In the snippet below, the interviewer is asking each patient how they feel
+      about being discharged today and whether or not they are ready to go home.
+      For this task, focus on whether the patient *wants* to go home. Do *not*
+      focus on whether the patient is ready to go home. For example, if the patient
+      says "I want to go home, but I'm not ready", focus for this task on the part
+      where the patient says "I want to go home". For each patient, your task is
+      to extract one of the following options based on the most appropriate case.
+
+
+      Options:
+
+      1. "YES"
+      
+      Answer with "YES" if the patient expresses that they do *want* to go home.
+      
+      
+      2. "UNSURE"
+      
+      Answer with "UNSURE" if the patient expresses that they are unsure whether
+      or not they *want* to go home. This can include expressions such as "maybe"
+      or "I don't know".
+      
+      
+      3. "NO"
+
+      Answer with "NO" if the patient expresses that they do *not* want to go home.
+
+      
+      4. "UNKNOWN"
+
+      Answer with "UNKNOWN" if the patient fails to explicitly mention what they
+      *want* with regards to going home. For example, if the patient only discusses
+      whether they are *ready* to go home, but not whether they *want* to go home.
+
+      
+      5. "IRRELEVANT"
+      
+      Answer with "IRRELEVANT" if the patient fails to answer the interviewer's 
+      question because they are talking about something other than whether they
+      *want* to go home.
+      
+      
+      Additional instructions:
+      
+      Answer with the most appropriate of the options listed above.
+      Do not output anything else.
+    question_ids: ["32", "32a"]
+    parser_type: ENUM
+    few_shot_assign_ids: [UHN00051, UHN00101, UHN00301]
+    parser_data: {enum_options: ["YES", "UNSURE", "NO", "UNKNOWN", "IRRELEVANT"]}
+  Q_32_ready:
+    prompt: >-
+      In the snippet below, the interviewer is asking each patient how they feel
+      about being discharged today and whether or not they are ready to go home.
+      For this task, focus on whether the patient is *ready* to go home. Do *not*
+      focus on whether the patient wants to go home. For example, if the patient
+      says "I want to go home, but I'm not ready", focus for this task on the part
+      where the patient says "I'm not ready". For each patient, your task is
+      to extract one of the following options based on the most appropriate case.
+
+
+      Options:
+
+      1. "YES"
+      
+      Answer with "YES" if the patient expresses that they are *ready* to go home.
+      
+      
+      2. "UNSURE"
+      
+      Answer with "UNSURE" if the patient expresses that they are unsure whether
+      or not they are *ready* to go home. This can include expressions such as
+      "maybe" or "I don't know".
+      
+      
+      3. "NO"
+
+      Answer with "NO" if the patient expresses that they are *not* ready to go home.
+
+      
+      4. "UNKNOWN"
+
+      Answer with "UNKNOWN" if the patient fails to explicitly mention what they
+      are *ready* to be going home. For example, if the patient only discusses
+      whether they *want* to go home, but not whether they are *ready* to go home.
+
+      
+      5. "IRRELEVANT"
+      
+      Answer with "IRRELEVANT" if the patient fails to answer the interviewer's 
+      question because they are talking about something other than whether they
+      are *ready* to go home.
+      
+      
+      Additional instructions:
+      
+      Answer with the most appropriate of the options listed above.
+      Do not output anything else.
+    question_ids: ["32", "32a"]
+    parser_type: ENUM
+    few_shot_assign_ids: [UHN00051, UHN00101, UHN00451]
+    parser_data: {enum_options: ["YES", "UNSURE", "NO", "UNKNOWN", "IRRELEVANT"]}
+  Q_32_tension:
+    prompt: >-
+      In the snippet below, the interviewer is asking each patient how they feel
+      about being discharged today and whether or not they are ready to go home.
+      For this task, focus on whether or not there is any tension expressed in
+      the patient's response. For each patient, your task is to extract one of
+      the following options based on the most appropriate case.
+
+
+      Options:
+
+      1. "INTERNAL TENSION"
+      
+      Answer with "INTERNAL TENSION" if the patient expresses some tension that
+      is internal to them and their feelings. For example, convert the snippet
+      "I want to go home, but I'm not ready" to "INTERNAL TENSION", because there
+      is internal tension between what the patient wants and how ready they feel. 
+      
+      
+      2. "WAITING ON CLINICIANS"
+      
+      Answer with "WAITING ON CLINICIANS" if the patient expresses some tension
+      arising from having to wait on the clinical team. For example, convert the
+      snippet "I  want to go home, but I won't until the doctors say I can" to
+      "WAITING ON CLINICIANS", because the patient is waiting on the clinical team.
+      This can also be expressed waiting on other hospital staff, or on the
+      hospital as a whole.
+      
+      
+      3. "OTHER TENSION"
+
+      Answer with "OTHER TENSION" if the patient expresses some other form of tension
+      that is neither internal to themselves ("INTERNAL TENSION") nor based on waiting
+      for the clinical team ("WAITING ON CLINICIANS").
+
+      
+      4. "NO TENSION"
+
+      Answer "NO TENSION" if the patient do not express any tension in their response.
+
+      
+      5. "IRRELEVANT"
+      
+      Answer with "IRRELEVANT" if the patient fails to answer the interviewer's 
+      question because they are talking about something other than how they feel
+      about being discharged today and whether or not they are ready to go home.
+      
+      
+      Additional instructions:
+      
+      Answer with the most appropriate of the options listed above.
+      Do not output anything else.
+    question_ids: ["32", "32a"]
+    parser_type: ENUM
+    few_shot_assign_ids: [UHN0001, UHN00101, UHN00201, UHN00301]
+    parser_data:
+      enum_options:
+        - "INTERNAL TENSION"
+        - "WAITING ON CLINICIANS"
+        - "OTHER TENSION"
+        - "NO TENSION"
+        - "IRRELEVANT"
   Q_33:
     prompt: >-
       In the snippet below, the interviewer is asking each patient to give a 
@@ -2814,6 +3088,56 @@ clusters:
     few_shot_assign_ids: [UHN00051, UHN00101, UHN00201, UHN00301]
     system_prompt_index: 2
     parser_data: {min_score: 0.0, max_score: 10.0, reject: IRRELEVANT}
+  Q_34:
+    prompt: >-
+      In the snippet below, the interviewer is asking each patient to describe
+      how far they can walk. For each patient, your task is to extract one of
+      the following options based on the most appropriate case.
+
+
+      Options:
+
+      1. "NOT AT ALL"
+      
+      Answer with "NOT AT ALL" if the patient expresses that they cannot walk at all.
+      
+      
+      2. "NOT FAR"
+      
+      Answer with "NOT FAR" if the patient expresses that they can walk a bit, but
+      not far. This can include expressions such as "a few meters", "to the end of
+      the hall", or "only inside the hospital".
+      
+      
+      3. "FAR"
+
+      Answer with "FAR" if the patient expresses that they can walk quite far. For
+      example, if the patient can walk at least one city block, at least 1km, or
+      at least 30 minutes.
+
+      
+      4. "UNKNOWN"
+      
+      Answer with "UNKNOWN" if the patient expresses that they do not known how far
+      they can walk. This can include expressions such as "I haven't tried" or "I've
+      been in bed the whole time."
+      
+      
+      5. "IRRELEVANT"
+      
+      Answer with "IRRELEVANT" if the patient fails to answer the interviewer's question
+      because they are talking about something other than how far they can walk.
+      
+      
+      Additional instructions:
+      
+      Answer with the most appropriate of the options listed above.
+      Do not output anything else.
+    question_ids: [34]
+    parser_type: ENUM
+    few_shot_assign_ids: [UHN0001, UHN00051, UHN00101, UHN00101]
+    parser_data:
+      enum_options: ["NOT AT ALL", "NOT FAR", "FAR", "UNKNOWN", "IRRELEVANT"]
   Q_35:
     prompt: >-
       In the snippet below, the interviewer is asking each patient whether or not 
@@ -2917,3 +3241,79 @@ clusters:
     parser_type: ENUM
     few_shot_assign_ids: [UHN0001, UHN00051, UHN00201]
     parser_data: {enum_options: ["YES", "SOMEWHAT", "NO", "UNSURE", "IRRELEVANT"]}
+  Q_36:
+    prompt: >-      
+      In the snippet below, the interviewer is asking each patient what their fears
+      right now regarding their health are. For each patient, your task  is to convert 
+      the patient's response into or or more of the following options based on the most
+      appropriate case.
+
+
+      Options:
+
+      1. "DYING"
+
+      Answer "DYING" if the patient fears dying.
+
+
+      2. "FUNCTION"
+
+      Answer "FUNCTION" if the patient fears losing function in their day-to-day
+      life and activities, such as going for a walk, doing daily tasks like, or
+      doing activities with their family or friends.
+
+
+      3. "PROGRESSION"
+      
+      Answer "PROGRESSION" if the patient fears a worsening of their cardiac
+      problems or a progression of their cardiac condition. 
+      
+      
+      4. "NO FEAR"
+      
+      Answer "NO FEAR" if the patient expresses that they have no fears regarding
+      their health.
+      
+      
+      5. "OTHER: <fear>"
+
+      Answer "OTHER: <fear>" if the patient mentions some other fear that does not
+      fit in neatly with the above options. Fill in the "<fear>" with a short
+      (1-10 word) descriptive summary of the fear the patient gives. If the patient
+      gives more than one fear, separate each reason with a comma to create a
+      comma-separated list of fear, such as "OTHER: fear #1, fear #2".
+
+
+      6. "IRRELEVANT"
+
+      Answer with "IRRELEVANT" if the patient fails to answer the interviewer's 
+      question because they are talking about something other than whether they
+      have support for managing their heart failure.
+
+
+      Additional instructions:
+
+      Answer with any of the options listed above that are appropriate. If more than
+      one option is appropriate at the same time, list each appropriate option on
+      a new line. For example, convert the snippet "I am afraid of dying, but also
+      afraid that I can longer participate in activities with my family" to:
+      
+      "DYING
+      
+      FUNCTION"
+      
+      
+      CAUTION: Even though multiple options can be appropriate at the same time,
+      each individual option should only appear once (when the case is appropriate).
+      Do not output anything else.
+    question_ids: [36]
+    parser_type: MULTI_TAG
+    few_shot_assign_ids: [UHN0001, UHN00051, UHN00151, UHN00351]
+    parser_data:
+      options:
+        - {tag: "DYING", repeatable: false, value_sep: null}
+        - {tag: "FUNCTION", repeatable: false, value_sep: null}
+        - {tag: "PROGRESSION", repeatable: false, value_sep: null}
+        - {tag: "NO FEAR", repeatable: false, value_sep: null}
+        - {tag: "OTHER", repeatable: false, value_sep: ":"}
+        - {tag: "IRRELEVANT", repeatable: false, value_sep: null}
