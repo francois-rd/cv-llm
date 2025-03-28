@@ -61,7 +61,9 @@ class PromptMaker:
         for a_id in a_ids:
             data = self.sampler.get(name, a_id)
             if data is None:
-                raise ValueError("Missing labels cannot generate few-shot samples.")
+                raise ValueError(
+                    f"Missing label {name} ({a_id}): Cannot generate few-shot sample."
+                )
             template = self._make_sample(data.lines, first, instruction, delimiter)
             messages.append((MessageType.USER, template))
             messages.append((MessageType.ASSISTANT, str(data.label)))
